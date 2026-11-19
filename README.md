@@ -19,6 +19,21 @@ dotnet run --project src/AmperDock.App
 - `--gallery` opens the developer component gallery (a test page for the UI building blocks, not settings).
 - Set `AMPERDOCK_TRACE=1` to write a trace log to `%LOCALAPPDATA%\AmperDock\logs\`.
 
+## Look packs (cursors, trails, folder icons)
+
+Right-click the dock → **Look packs**. Cursors and folder icons change real Windows settings, and both can be
+undone from the same window ("Your original cursors", and Restore next to each folder).
+
+The art is original and lives in `replica/design/`. After changing it, rebuild the app's files with:
+
+```
+python replica/design/make_aesthetic_assets.py replica/design/assets
+python tools/build_lookpacks.py
+```
+
+(`build_lookpacks.py` needs Pillow and uses Microsoft Edge to render.) `--selftest-looks report.txt` applies
+and restores a cursor set and a folder icon on a temp folder, and checks everything came back exactly.
+
 ## Test
 
 ```

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using AmperDock.App.Dock;
 using AmperDock.App.Gallery;
+using AmperDock.App.Looks;
 using AmperDock.App.Settings;
 using AmperDock.App.Theme;
 using AmperDock.Core;
@@ -19,6 +20,8 @@ public partial class App : Application
     private SettingsStore? _store;
     private ThemeManager? _theme;
     private DockHost? _dock;
+    private LookService? _looks;
+    private LookPacksWindow? _looksWindow;
     private GalleryWindow? _gallery;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -38,7 +41,17 @@ public partial class App : Application
         SeedOnFirstRun(_store);
 
         if (e.Args.Contains("--gallery")) OpenGallery();
-        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenAppearance);
+        _looks = new LookService(_store);
+        if (e.Args.SkipWhile(x => x != "--selftest-looks").Skip(1).FirstOrDefault() is { } report)
+        {
+            File.WriteAllText(report, LookSelfTest.Run(_looks));
+            Shutdown();
+            return;
+        }
+        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenAppearance, OpenLooks);
+        _looks.Changed += () => _dock?.RefreshIcons();   // folder items pick up new folder icons
+        _looks.Start();
+        if (e.Args.Contains("--looks")) OpenLooks();
         if (e.Args.Contains("--appearance")) OpenAppearance(_dock);
     }
 
@@ -65,6 +78,13 @@ public partial class App : Application
         _gallery.Show();
     }
 
+    private void OpenLooks()
+    {
+        if (_looksWindow is { IsLoaded: true }) { _looksWindow.Activate(); return; }
+        _looksWindow = new LookPacksWindow(_looks!);
+        _looksWindow.Show();
+    }
+
     private AppearanceWindow? _appearance;
 
     private void OpenAppearance(DockHost dock)
@@ -76,6 +96,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _looks?.Dispose();
         _dock?.Dispose();
         _store?.Dispose();
         _single?.Dispose();

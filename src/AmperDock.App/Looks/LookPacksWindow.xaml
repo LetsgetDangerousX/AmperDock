@@ -1,0 +1,49 @@
+<Window x:Class="AmperDock.App.Looks.LookPacksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Look packs" Width="820" Height="780" MinWidth="560" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource Font.Sans}" FontSize="{StaticResource Type.Body.Size}"
+        Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Brush.Border}"
+            Background="{DynamicResource Brush.Surface}" Padding="24,12">
+      <DockPanel>
+        <TextBlock Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Text="Changes apply right away. Everything here can be undone."/>
+        <Button Style="{StaticResource Btn.Primary}" HorizontalAlignment="Right" Content="Done" IsCancel="True" IsDefault="True" Click="OnDone"/>
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+      <StackPanel Margin="28,22,28,28">
+        <TextBlock Style="{StaticResource Text.Display}" Text="Look packs"/>
+        <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0"
+                   Text="Match your whole desktop to your dock: cursors, a cursor trail and folder icons."/>
+
+        <!-- cursors -->
+        <TextBlock Style="{StaticResource Text.Title}" Margin="0,28,0,4" Text="Cursors"/>
+        <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,0,12"
+                   Text="Changes your pointer and link hand everywhere in Windows. Your own cursors are saved first, so you can always go back."/>
+        <WrapPanel x:Name="CursorCards"/>
+
+        <!-- trail -->
+        <TextBlock Style="{StaticResource Text.Title}" Margin="0,28,0,4" Text="Cursor trail"/>
+        <TextBlock x:Name="TrailNote" Style="{StaticResource Text.Muted}" Margin="0,0,0,12"
+                   Text="Little things that follow your pointer. Clicks go straight through them, and they pause during fullscreen games."/>
+        <WrapPanel x:Name="TrailCards"/>
+
+        <!-- folder icons -->
+        <TextBlock Style="{StaticResource Text.Title}" Margin="0,28,0,4" Text="Folder icons"/>
+        <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,0,12"
+                   Text="Pick an icon, then choose the folders to give it to. Folders on your dock update too."/>
+        <WrapPanel x:Name="FolderCards"/>
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+          <Button x:Name="ApplyFolderButton" Style="{StaticResource Btn.Primary}" Content="Choose folders…" Click="OnApplyFolder"/>
+          <TextBlock x:Name="FolderStatus" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </StackPanel>
+        <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,20,0,8" Text="Folders you've customised"/>
+        <StackPanel x:Name="FolderList"/>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

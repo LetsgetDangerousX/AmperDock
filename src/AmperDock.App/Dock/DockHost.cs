@@ -37,6 +37,7 @@ public sealed class DockHost : IDisposable
     private readonly ThemeManager _theme;
     private readonly string _containerId;
     private readonly Action<DockHost> _openAppearance;
+    private readonly Action _openLooks;
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
     private readonly DispatcherTimer _taskTimer;
@@ -71,12 +72,13 @@ public sealed class DockHost : IDisposable
     private string? _toast;
     private long _toastUntil;
 
-    public DockHost(SettingsStore store, ThemeManager theme, string containerId, Action<DockHost> openAppearance)
+    public DockHost(SettingsStore store, ThemeManager theme, string containerId, Action<DockHost> openAppearance, Action openLooks)
     {
         _store = store;
         _theme = theme;
         _containerId = containerId;
         _openAppearance = openAppearance;
+        _openLooks = openLooks;
         _appearance = store.GetAppearance(containerId);
         _placement = store.GetPlacement(containerId);
         _baseMetrics = theme.DockMetrics();
@@ -297,6 +299,19 @@ public sealed class DockHost : IDisposable
         _running = running;
         _foreground = fg;
         if (changed) Render();
+    }
+
+    /// <summary>Fetch every item's icon again (after a folder's icon was changed, for example).</summary>
+    public void RefreshIcons()
+    {
+        var iconPx = (int)Math.Min(256, MathF.Ceiling(_m.MagnifiedSize / 32) * 32);
+        foreach (var item in _items)
+        {
+            var src = item.IconPath ?? item.Target;
+            var px = src is null ? null : ShellIcons.Get(src, Math.Max(iconPx, 128));
+            if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
+        }
+        Kick();
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -683,7 +698,7 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Appearance = 9, Quit = 11;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Looks = 8, Appearance = 9, Quit = 11;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         if (hit >= 0)
         {
@@ -705,6 +720,7 @@ public sealed class DockHost : IDisposable
         AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
         AppendMenu(menu, MF_POPUP, position, "Position");
         AppendMenu(menu, MF_STRING, Appearance, "Dock appearance…");
+        AppendMenu(menu, MF_STRING, Looks, "Look packs: cursors, trails, folder icons…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, MF_STRING, Quit, "Quit AmperDock");
 
@@ -745,6 +761,9 @@ public sealed class DockHost : IDisposable
                 break;
             case Appearance:
                 _openAppearance(this);
+                break;
+            case Looks:
+                _openLooks();
                 break;
             case Quit:
                 System.Windows.Application.Current.Shutdown();
