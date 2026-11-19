@@ -21,6 +21,9 @@ public sealed record DockBehavior
     /// <summary>Desktop files this shelf has hidden from the desktop, so they can be put back exactly.</summary>
     public List<string> HiddenOnDesktop { get; init; } = [];
 
+    /// <summary>Each tidied file's attributes from before the shelf touched it (path -> FileAttributes), restored exactly.</summary>
+    public Dictionary<string, int> OriginalAttributes { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
     public static readonly DockBehavior Default = new();
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };

@@ -18,7 +18,7 @@ dotnet run --project src/AmperDock.App
 - **New desktop shelf** (right-click menu) makes a dock that lives on the desktop under your windows. Drop desktop icons on it to tidy them:
   the desktop copy is only hidden, never moved, and comes back when you take it off the shelf or remove the shelf.
 - Dock appearance has **Dock colours follow my wallpaper**, **Icon colours follow my wallpaper** (separately) and **Reflections**.
-- Right-click → **Add a widget**: Mochi, Clock, Calendar, Recycle Bin, CPU and memory.
+- Right-click → **Add a desktop widget**: a note, a clock or a countdown. They sit on the desktop; drag them anywhere, right-click for colours.
 - Look packs → **Theme packs** sets a wallpaper, dock theme, cursors, trail and folder icons together (or the ones you tick), with Undo.
 - Move the dock by dragging an empty part of it (or Alt+drag anywhere on it): drop it near any screen edge to dock it there, or anywhere else to float.
 - Settings live in `%APPDATA%\AmperDock\amperdock.db`. Use `--db <path>` to try it with a throwaway database.

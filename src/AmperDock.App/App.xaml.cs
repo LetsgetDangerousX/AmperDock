@@ -22,6 +22,7 @@ public partial class App : Application
     private readonly List<DockHost> _docks = [];
     private readonly Dictionary<string, AppearanceWindow> _appearanceWindows = new();
     private LookService? _looks;
+    private DesktopWidgetManager? _widgets;
     private LookPacksWindow? _looksWindow;
     private GalleryWindow? _gallery;
 
@@ -82,7 +83,10 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        _widgets = new DesktopWidgetManager(_store);
+        MoveWidgetsOffDocks();
         foreach (var d in _store.GetDocks().Where(d => d.Enabled)) StartDock(d.Id);
+        _widgets.Start();
         _looks.Changed += () => { foreach (var d in _docks) d.RefreshIcons(); };   // folder items pick up new folder icons
         _looks.Start();
         if (e.Args.Contains("--looks")) OpenLooks();
@@ -134,9 +138,20 @@ public partial class App : Application
             .Where(i => i.Type == ItemTypes.Folder && i.Target is not null).Select(i => i.Target!);
     }
 
+    /// <summary>
+    /// Widgets live on the desktop, not in docks. An earlier build put them in docks: take those out,
+    /// and give the desktop a clock if one of them was a clock.
+    /// </summary>
+    private void MoveWidgetsOffDocks()
+    {
+        var onDocks = _store!.GetDocks().SelectMany(d => _store.GetItems(d.Id)).Where(i => i.Type == ItemTypes.Widget).ToList();
+        foreach (var item in onDocks) _store.RemoveItem(item.Id);
+        if (onDocks.Any(i => i.Target == "widget:clock") && !_widgets!.Has("clock")) _widgets.Add("clock");
+    }
+
     private void StartDock(string id)
     {
-        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, NewShelf))); }
+        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, NewShelf, (kind, _) => _widgets!.Add(kind)))); }
         catch (Exception ex) { Log(ex); }
     }
 
@@ -203,6 +218,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _looks?.Dispose();
+        _widgets?.CloseAll();
         foreach (var d in _docks) d.Dispose();
         _store?.Dispose();
         _single?.Dispose();

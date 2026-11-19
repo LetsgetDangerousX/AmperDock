@@ -356,6 +356,34 @@ public class WallpaperPaletteTests
     }
 }
 
+public class DesktopWidgetTests
+{
+    [Fact]
+    public void Widgets_round_trip_and_bad_json_gives_none()
+    {
+        var list = new[]
+        {
+            new DesktopWidget { Kind = "note", X = 100, Y = 200, Colour = "pink", Text = "buy milk\nfeed Mochi" },
+            new DesktopWidget { Kind = "countdown", Text = "Christmas", Target = new DateTime(2026, 12, 25) },
+        };
+        var back = DesktopWidget.ListFromJson(DesktopWidget.ListToJson(list));
+        Assert.Equal(2, back.Count);
+        Assert.Equal("buy milk\nfeed Mochi", back[0].Text);
+        Assert.Equal(new DateTime(2026, 12, 25), back[1].Target);
+        Assert.Empty(DesktopWidget.ListFromJson("{not json"));
+    }
+
+    [Fact]
+    public void Countdown_counts_days_hours_minutes_and_arrives()
+    {
+        var target = new DateTime(2026, 12, 25);
+        Assert.Equal((35, 12, 30, false), DesktopWidget.Remaining(target, new DateTime(2026, 11, 19, 11, 30, 0)));
+        Assert.Equal((0, 0, 0, true), DesktopWidget.Remaining(target, new DateTime(2026, 12, 25, 0, 0, 1)));
+        Assert.Equal(new DateTime(2026, 12, 25), DesktopWidget.NextChristmas(new DateTime(2026, 11, 19)));
+        Assert.Equal(new DateTime(2027, 12, 25), DesktopWidget.NextChristmas(new DateTime(2026, 12, 26)));
+    }
+}
+
 public class ThemeFieldTests
 {
     [Fact]
