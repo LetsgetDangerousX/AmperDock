@@ -66,6 +66,20 @@ public sealed class StoreTests : IDisposable
         Assert.Equal(DockAppearance.Default, DockAppearance.FromJson("not json"));
     }
 
+    [Fact]
+    public void Gradient_and_outline_settings_round_trip_and_clamp()
+    {
+        using var s = NewStore();
+        s.SetAppearance(SettingsStore.MainDockId, new DockAppearance
+        {
+            Style = DockStyles.Gradient, Color = "#B497FF", Color2 = "#f4a6c8", GradientAngle = 450,
+            OutlineColor = "#2a1f3d", OutlineWidth = 99,
+        });
+        var a = s.GetAppearance(SettingsStore.MainDockId);
+        Assert.Equal((DockStyles.Gradient, "#F4A6C8", 90f, "#2A1F3D", 6f), (a.Style, a.Color2, a.GradientAngle, a.OutlineColor, a.OutlineWidth));
+        Assert.Equal(DockStyles.Glass, DockAppearance.FromJson("""{"style": "sparkly"}""").Style);
+    }
+
     private static string Labels(SettingsStore s) => string.Concat(s.GetItems(SettingsStore.MainDockId).Select(i => i.Label));
 
     public void Dispose()

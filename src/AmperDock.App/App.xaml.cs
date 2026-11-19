@@ -70,7 +70,7 @@ public partial class App : Application
     private void OpenAppearance(DockHost dock)
     {
         if (_appearance is { IsLoaded: true }) { _appearance.Activate(); return; }
-        _appearance = new AppearanceWindow(dock);
+        _appearance = new AppearanceWindow(dock, _store!);
         _appearance.Show();
     }
 

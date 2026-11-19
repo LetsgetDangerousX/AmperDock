@@ -3,23 +3,47 @@ using System.Text.Json.Serialization;
 
 namespace AmperDock.Core;
 
+/// <summary>How the dock band is painted.</summary>
+public static class DockStyles
+{
+    public const string Glass = "glass";        // tinted fill + top highlight + outline (default)
+    public const string Solid = "solid";        // flat fill, no highlight
+    public const string Gradient = "gradient";  // two-colour linear gradient
+    public const string Outline = "outline";    // no fill, just a coloured outline
+    public static readonly string[] All = [Glass, Solid, Gradient, Outline];
+}
+
 /// <summary>
 /// User-chosen look for one dock, stored in containers.appearance_json.
-/// Null colour = follow the theme (light/dark). Opacity 0 = an invisible dock: only the icons show.
+/// Null colours = follow the theme (light/dark). Opacity 0 = an invisible dock: only the icons show.
 /// </summary>
 public sealed record DockAppearance
 {
-    /// <summary>0 = sharp corners, 1 = pill (radius = half the band height). Default matches the Lilac theme.</summary>
+    public string Style { get; init; } = DockStyles.Glass;
+
+    /// <summary>0 = sharp corners, 1 = pill (radius = half the band height).</summary>
     public float Roundness { get; init; } = 0.5f;
 
-    /// <summary>"#RRGGBB", or null to use the theme's colour for the current light/dark mode.</summary>
+    /// <summary>Fill colour "#RRGGBB", or null to use the theme's colour.</summary>
     public string? Color { get; init; }
+
+    /// <summary>Gradient end colour (Gradient style only). Null = a lighter version of the fill.</summary>
+    public string? Color2 { get; init; }
+
+    /// <summary>Gradient direction in degrees: 0 = left to right, 90 = top to bottom.</summary>
+    public float GradientAngle { get; init; } = 0;
 
     /// <summary>Background opacity, 0 to 100 percent.</summary>
     public int Opacity { get; init; } = 78;
 
-    /// <summary>The 1px outline. Hidden automatically when Opacity is 0.</summary>
+    /// <summary>Outline on/off. Outline-only style always shows it.</summary>
     public bool Outline { get; init; } = true;
+
+    /// <summary>Outline colour, or null for the theme's outline colour.</summary>
+    public string? OutlineColor { get; init; }
+
+    /// <summary>Outline width in DIPs, 0.5 to 6.</summary>
+    public float OutlineWidth { get; init; } = 1;
 
     public static readonly DockAppearance Default = new();
 
@@ -35,20 +59,23 @@ public sealed record DockAppearance
     public static DockAppearance FromJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return Default;
-        try
-        {
-            var a = JsonSerializer.Deserialize<DockAppearance>(json, Json) ?? Default;
-            return a.Normalised();
-        }
+        try { return (JsonSerializer.Deserialize<DockAppearance>(json, Json) ?? Default).Normalised(); }
         catch (JsonException) { return Default; }
     }
 
     public DockAppearance Normalised() => this with
     {
+        Style = DockStyles.All.Contains(Style) ? Style : DockStyles.Glass,
         Roundness = Math.Clamp(float.IsFinite(Roundness) ? Roundness : 0.5f, 0, 1),
         Opacity = Math.Clamp(Opacity, 0, 100),
-        Color = IsHexColor(Color) ? Color!.ToUpperInvariant() : null,
+        Color = Hex(Color),
+        Color2 = Hex(Color2),
+        OutlineColor = Hex(OutlineColor),
+        GradientAngle = float.IsFinite(GradientAngle) ? ((GradientAngle % 360) + 360) % 360 : 0,
+        OutlineWidth = Math.Clamp(float.IsFinite(OutlineWidth) ? OutlineWidth : 1, 0.5f, 6),
     };
+
+    private static string? Hex(string? s) => IsHexColor(s) ? s!.ToUpperInvariant() : null;
 
     public static bool IsHexColor(string? s) =>
         s is { Length: 7 } && s[0] == '#' && s.Skip(1).All(Uri.IsHexDigit);

@@ -1,13 +1,13 @@
 <Window x:Class="AmperDock.App.Settings.AppearanceWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Dock appearance" Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        xmlns:c="clr-namespace:AmperDock.App.Controls"
+        Title="Dock appearance" Width="900" Height="760" MinWidth="760" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         FontFamily="{StaticResource Font.Sans}" FontSize="{StaticResource Type.Body.Size}"
         Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}">
-  <!-- S14 (Appearance), first slice: shape, colour, transparency. Changes show on the dock as you make them. -->
+  <!-- S14 Appearance: style, colours (with a full picker), corners, opacity, outline. Changes show on the dock live. -->
   <DockPanel>
-    <!-- sticky footer -->
     <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Brush.Border}"
             Background="{DynamicResource Brush.Surface}" Padding="24,12">
       <DockPanel>
@@ -19,46 +19,87 @@
       </DockPanel>
     </Border>
 
-    <StackPanel Margin="24,20,24,24">
-      <TextBlock Style="{StaticResource Text.Title}" Text="Dock appearance"/>
-      <TextBlock Style="{StaticResource Text.Muted}" Margin="0,2,0,0" Text="Changes show on your dock right away. Save keeps them."/>
+    <Grid Margin="24,20,24,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="24"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
 
-      <!-- Shape -->
-      <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,24,0,8" Text="Corners"/>
-      <UniformGrid Rows="1" Columns="4" x:Name="ShapePresets">
-        <RadioButton GroupName="shape" Content="Sharp" Tag="0" Checked="OnShapePreset"/>
-        <RadioButton GroupName="shape" Content="Soft" Tag="0.2" Checked="OnShapePreset"/>
-        <RadioButton GroupName="shape" Content="Rounded" Tag="0.5" Checked="OnShapePreset"/>
-        <RadioButton GroupName="shape" Content="Pill" Tag="1" Checked="OnShapePreset"/>
-      </UniformGrid>
-      <DockPanel Margin="0,8,0,0">
-        <TextBlock DockPanel.Dock="Right" Width="48" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"
-                   Text="{Binding Value, ElementName=Roundness, StringFormat={}{0:0}%}"/>
-        <Slider x:Name="Roundness" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
-                AutomationProperties.Name="Corner roundness"/>
-      </DockPanel>
+      <!-- left: settings -->
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+        <StackPanel Margin="0,0,8,24">
+          <TextBlock Style="{StaticResource Text.Title}" Text="Dock appearance"/>
+          <TextBlock Style="{StaticResource Text.Muted}" Margin="0,2,0,0" Text="Changes show on your dock right away. Save keeps them."/>
 
-      <!-- Colour -->
-      <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,24,0,8" Text="Colour"/>
-      <WrapPanel x:Name="Swatches"/>
-      <DockPanel Margin="0,8,0,0">
-        <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Secondary}" Content="More colours…" Click="OnMoreColours" Margin="8,0,0,0"/>
-        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Text.Body}" VerticalAlignment="Center" Margin="0,0,8,0" Text="Hex"/>
-        <TextBox x:Name="Hex" MaxLength="7" LostFocus="OnHexCommitted" KeyDown="OnHexKey" AutomationProperties.Name="Colour hex code"/>
-      </DockPanel>
-      <TextBlock x:Name="HexError" Style="{StaticResource Text.Caption}" Foreground="{DynamicResource Brush.Danger}" Margin="0,4,0,0"
-                 Visibility="Collapsed" Text="Use a colour code like #F6F0FF."/>
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Style"/>
+          <UniformGrid x:Name="StyleCards" Rows="1" Columns="4"/>
 
-      <!-- Transparency -->
-      <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,24,0,8" Text="Opacity"/>
-      <DockPanel>
-        <TextBlock x:Name="OpacityValue" DockPanel.Dock="Right" Width="72" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"/>
-        <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
-                AutomationProperties.Name="Dock opacity"/>
-      </DockPanel>
-      <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,0"
-                 Text="At 0% the dock itself is invisible and only your icons show."/>
-      <CheckBox x:Name="Outline" Margin="0,12,0,0" Content="Thin outline around the dock" Checked="OnChanged" Unchecked="OnChanged"/>
-    </StackPanel>
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Colours"/>
+          <TextBlock Style="{StaticResource Text.Caption}" Margin="0,0,0,8" Text="Pick a slot, then choose its colour on the right."/>
+          <StackPanel x:Name="Slots"/>
+
+          <StackPanel x:Name="GradientPanel">
+            <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Gradient direction"/>
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
+                <Button Style="{StaticResource Btn.Secondary}" MinWidth="36" Padding="0" Content="→" Tag="0" Click="OnAnglePreset" ToolTip="Left to right" Margin="0,0,4,0"/>
+                <Button Style="{StaticResource Btn.Secondary}" MinWidth="36" Padding="0" Content="↘" Tag="45" Click="OnAnglePreset" ToolTip="Diagonal" Margin="0,0,4,0"/>
+                <Button Style="{StaticResource Btn.Secondary}" MinWidth="36" Padding="0" Content="↓" Tag="90" Click="OnAnglePreset" ToolTip="Top to bottom"/>
+              </StackPanel>
+              <TextBlock DockPanel.Dock="Right" Width="44" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"
+                         Text="{Binding Value, ElementName=Angle, StringFormat={}{0:0}°}"/>
+              <Slider x:Name="Angle" Minimum="0" Maximum="359" SmallChange="1" LargeChange="15" ValueChanged="OnChanged"
+                      AutomationProperties.Name="Gradient direction in degrees"/>
+            </DockPanel>
+          </StackPanel>
+
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Corners"/>
+          <UniformGrid Rows="1" Columns="4" x:Name="ShapePresets">
+            <RadioButton GroupName="shape" Content="Sharp" Tag="0" Checked="OnShapePreset"/>
+            <RadioButton GroupName="shape" Content="Soft" Tag="0.2" Checked="OnShapePreset"/>
+            <RadioButton GroupName="shape" Content="Rounded" Tag="0.5" Checked="OnShapePreset"/>
+            <RadioButton GroupName="shape" Content="Pill" Tag="1" Checked="OnShapePreset"/>
+          </UniformGrid>
+          <DockPanel Margin="0,8,0,0">
+            <TextBlock DockPanel.Dock="Right" Width="48" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"
+                       Text="{Binding Value, ElementName=Roundness, StringFormat={}{0:0}%}"/>
+            <Slider x:Name="Roundness" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
+                    AutomationProperties.Name="Corner roundness"/>
+          </DockPanel>
+
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Opacity"/>
+          <DockPanel>
+            <TextBlock x:Name="OpacityValue" DockPanel.Dock="Right" Width="72" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"/>
+            <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
+                    AutomationProperties.Name="Dock opacity"/>
+          </DockPanel>
+          <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,0" Text="At 0% the dock itself is invisible and only your icons show."/>
+
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Outline"/>
+          <CheckBox x:Name="Outline" Content="Show an outline" Checked="OnChanged" Unchecked="OnChanged"/>
+          <DockPanel Margin="0,8,0,0" x:Name="OutlineWidthRow">
+            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Text.Body}" VerticalAlignment="Center" Width="60" Text="Width"/>
+            <TextBlock DockPanel.Dock="Right" Width="56" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"
+                       Text="{Binding Value, ElementName=OutlineWidth, StringFormat={}{0:0.#} px}"/>
+            <Slider x:Name="OutlineWidth" Minimum="0.5" Maximum="6" SmallChange="0.5" LargeChange="1" TickFrequency="0.5" IsSnapToTickEnabled="True"
+                    ValueChanged="OnChanged" AutomationProperties.Name="Outline width"/>
+          </DockPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- right: colour picker for the selected slot -->
+      <Border Grid.Column="2" Style="{StaticResource Card}" VerticalAlignment="Top" Padding="18">
+        <StackPanel Width="248">
+          <TextBlock x:Name="PickerTitle" Style="{StaticResource Text.Subtitle}" Text="Fill colour"/>
+          <TextBlock x:Name="PickerHint" Style="{StaticResource Text.Caption}" Margin="0,2,0,12" Text="Following the theme. Pick any colour to customise."/>
+          <c:ColorPicker x:Name="Picker"/>
+          <TextBlock Style="{StaticResource Text.Caption}" Margin="0,14,0,6" Text="Palette"/>
+          <WrapPanel x:Name="PaletteSwatches"/>
+          <Button x:Name="UseTheme" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left" Margin="-8,6,0,0"
+                  Content="Use the theme colour" Click="OnUseTheme"/>
+        </StackPanel>
+      </Border>
+    </Grid>
   </DockPanel>
 </Window>

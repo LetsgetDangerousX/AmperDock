@@ -39,8 +39,12 @@ public readonly record struct Argb(uint Value)
         ((Value >> 16) & 0xFF) / 255f, ((Value >> 8) & 0xFF) / 255f, (Value & 0xFF) / 255f, ((Value >> 24) & 0xFF) / 255f * opacity);
 }
 
+/// <summary>
+/// Paint for one dock. BackgroundEnd set = a linear gradient from Background to BackgroundEnd at GradientAngle
+/// (degrees, 0 = left to right, 90 = top to bottom). OutlineWidth is in DIPs.
+/// </summary>
 public sealed record DockStyle(Argb Background, Argb Outline, Argb Highlight, Argb Indicator, Argb IndicatorFocused,
-    Argb LabelBg, Argb LabelText, Argb Shadow);
+    Argb LabelBg, Argb LabelText, Argb Shadow, Argb? BackgroundEnd = null, float GradientAngle = 0, float OutlineWidth = 1);
 
 public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing);
 public readonly record struct IndicatorDraw(float CenterX, float CenterY, float Size, bool Focused);
@@ -199,7 +203,8 @@ public sealed class DockRenderer : IDisposable
     private static void DrawBackground(ID2D1DeviceContext ctx, DockScene s, DockStyle style)
     {
         var b = s.Background;
-        if (style.Background.Alpha == 0 && style.Outline.Alpha == 0) return;   // invisible dock: icons only
+        var hasFill = style.Background.Alpha > 0 || style.BackgroundEnd is { Alpha: > 0 };
+        if (!hasFill && style.Outline.Alpha == 0) return;   // invisible dock: icons only
         // soft shadow: a few expanding, fading rounded rects (a real blur effect comes with the effects work)
         if (style.Shadow.Alpha > 0)
         using (var shadow = ctx.CreateSolidColorBrush(style.Shadow.WithAlpha(1).ToColor4()))
@@ -212,14 +217,36 @@ public sealed class DockRenderer : IDisposable
             }
         }
         var rr = new RoundedRectangle(new RectangleF(b.X, b.Y, b.W, b.H), s.Radius, s.Radius);
-        using var fill = ctx.CreateSolidColorBrush(style.Background.ToColor4());
         using var outline = ctx.CreateSolidColorBrush(style.Outline.ToColor4());
         using var highlight = ctx.CreateSolidColorBrush(style.Highlight.ToColor4());
-        if (style.Background.Alpha > 0) ctx.FillRoundedRectangle(rr, fill);
-        if (style.Outline.Alpha > 0) ctx.DrawRoundedRectangle(rr, outline, 1 * s.Scale);
+        if (hasFill)
+        {
+            using var fill = FillBrush(ctx, style, b);
+            ctx.FillRoundedRectangle(rr, fill);
+        }
+        if (style.Outline.Alpha > 0)
+        {
+            // keep the stroke inside the band so thick outlines don't get clipped by the window region
+            var w = style.OutlineWidth * s.Scale;
+            var inner = new RoundedRectangle(new RectangleF(b.X + w / 2, b.Y + w / 2, b.W - w, b.H - w), MathF.Max(0, s.Radius - w / 2), MathF.Max(0, s.Radius - w / 2));
+            ctx.DrawRoundedRectangle(inner, outline, w);
+        }
         var inset = 1.5f * s.Scale;
         if (style.Highlight.Alpha > 0)
         ctx.DrawLine(new Vector2(b.X + s.Radius, b.Y + inset), new Vector2(b.Right - s.Radius, b.Y + inset), highlight, 1 * s.Scale);
+    }
+
+    private static ID2D1Brush FillBrush(ID2D1DeviceContext ctx, DockStyle style, RectF b)
+    {
+        if (style.BackgroundEnd is not Argb end) return ctx.CreateSolidColorBrush(style.Background.ToColor4());
+        // a line through the band's centre at the given angle, long enough to span the rectangle
+        var rad = style.GradientAngle * MathF.PI / 180;
+        var dir = new Vector2(MathF.Cos(rad), MathF.Sin(rad));
+        var half = (MathF.Abs(dir.X) * b.W + MathF.Abs(dir.Y) * b.H) / 2;
+        var c = new Vector2(b.CenterX, b.Y + b.H / 2);
+        using var stops = ctx.CreateGradientStopCollection(
+            [new GradientStop(0, style.Background.ToColor4()), new GradientStop(1, end.ToColor4())], ExtendMode.Clamp);
+        return ctx.CreateLinearGradientBrush(new LinearGradientBrushProperties(c - dir * half, c + dir * half), stops);
     }
 
     private static void DrawPlaceholder(ID2D1DeviceContext ctx, RectF r, DockStyle style, float opacity)

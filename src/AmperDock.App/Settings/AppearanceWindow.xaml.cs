@@ -1,42 +1,68 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
+using AmperDock.App.Controls;
 using AmperDock.App.Dock;
 using AmperDock.Core;
 
 namespace AmperDock.App.Settings;
 
-/// <summary>Dock appearance: corners, colour, opacity. Live preview on the dock; Cancel restores what was there.</summary>
+/// <summary>
+/// Dock appearance: style, three colour slots edited with a full picker, gradient direction, corners,
+/// opacity and outline. Live preview on the dock; Cancel restores what was there.
+/// </summary>
 public partial class AppearanceWindow : Window
 {
-    /// <summary>Starter palette, chosen to sit well with the lilac/plum brand. null = follow the theme.</summary>
-    private static readonly (string name, string? hex)[] Palette =
+    private enum Slot { Fill, GradientEnd, Outline }
+
+    /// <summary>Starter palette, chosen to sit well with the lilac/plum brand.</summary>
+    private static readonly string[] PaletteHex =
     [
-        ("Theme (follows light/dark)", null),
-        ("Lilac", "#F6F0FF"), ("Lavender", "#D9C8FF"), ("Blush", "#F9D3E3"), ("Peach", "#FFDCC8"),
-        ("Butter", "#FFF1C9"), ("Mint", "#D5F2E3"), ("Sky", "#D6E9FF"), ("Cream", "#FFF6E8"),
-        ("Plum", "#2A1F3D"), ("Midnight", "#18121F"), ("Graphite", "#2B2B2E"),
+        "#F6F0FF", "#D9C8FF", "#B497FF", "#7444D6", "#F9D3E3", "#F4A6C8", "#E86FA6", "#FFDCC8",
+        "#FFF1C9", "#D5F2E3", "#7ED9AE", "#D6E9FF", "#9CC9F5", "#FFF6E8", "#2A1F3D", "#18121F",
     ];
 
+    private static readonly (string id, string name, string blurb)[] Styles =
+    [
+        (DockStyles.Glass, "Glass", "Tinted, with a soft shine"),
+        (DockStyles.Solid, "Solid", "One flat colour"),
+        (DockStyles.Gradient, "Gradient", "Blend two colours"),
+        (DockStyles.Outline, "Outline", "Just a line"),
+    ];
+
+    private const string RecentKey = "recent_colors";
+
     private readonly DockHost _dock;
+    private readonly SettingsStore _store;
     private readonly DockAppearance _original;
     private DockAppearance _current;
+    private Slot _slot = Slot.Fill;
     private bool _loading = true, _saved;
 
-    public AppearanceWindow(DockHost dock)
+    public AppearanceWindow(DockHost dock, SettingsStore store)
     {
         _dock = dock;
+        _store = store;
         _original = _current = dock.Appearance;
         InitializeComponent();
-        BuildSwatches();
+
+        BuildStyleCards();
+        foreach (var hex in PaletteHex) PaletteSwatches.Children.Add(ColorPicker.Swatch(hex, () => SetSlot(_slot, hex)));
+        Picker.SetRecent(LoadRecent());
+        Picker.ColorChanged += c => { if (!_loading) SetSlot(_slot, ColorPicker.Hex(c)); };
+        Picker.LostKeyboardFocus += (_, _) => RememberCurrent();
+        Picker.PreviewMouseLeftButtonUp += (_, _) => RememberCurrent();
+
         LoadControls(_current);
         _loading = false;
         Closed += (_, _) => { if (!_saved) _dock.PreviewAppearance(_original); };
     }
+
+    // ---------------------------------------------------------------- state <-> controls
 
     private void LoadControls(DockAppearance a)
     {
@@ -44,40 +70,216 @@ public partial class AppearanceWindow : Window
         Roundness.Value = a.Roundness * 100;
         OpacitySlider.Value = a.Opacity;
         Outline.IsChecked = a.Outline;
-        Hex.Text = a.Color ?? "";
-        SyncPresetsAndLabels(a);
+        OutlineWidth.Value = a.OutlineWidth;
+        Angle.Value = a.GradientAngle;
+        _current = a;
+        SyncAll();
         _loading = false;
     }
 
-    private DockAppearance ReadControls() => _current with
+    private DockAppearance ReadSliders() => _current with
     {
         Roundness = (float)(Roundness.Value / 100),
         Opacity = (int)Math.Round(OpacitySlider.Value),
         Outline = Outline.IsChecked == true,
+        OutlineWidth = (float)OutlineWidth.Value,
+        GradientAngle = (float)Angle.Value,
     };
 
     private void Apply(DockAppearance a)
     {
         _current = a.Normalised();
-        SyncPresetsAndLabels(_current);
         _dock.PreviewAppearance(_current);
+        SyncAll();
     }
 
-    private void SyncPresetsAndLabels(DockAppearance a)
+    /// <summary>Refresh everything that depends on the current appearance (cards, slots, picker, labels).</summary>
+    private void SyncAll()
     {
+        var a = _current;
         OpacityValue.Text = a.Opacity == 0 ? "Invisible" : $"{a.Opacity}%";
+        GradientPanel.Visibility = a.Style == DockStyles.Gradient ? Visibility.Visible : Visibility.Collapsed;
+        OutlineWidthRow.IsEnabled = a.Outline || a.Style == DockStyles.Outline;
+        if (_slot == Slot.GradientEnd && a.Style != DockStyles.Gradient) _slot = Slot.Fill;
+        if (_slot == Slot.Fill && a.Style == DockStyles.Outline) _slot = Slot.Outline;
+
+        foreach (Border card in StyleCards.Children) Select(card, (string)card.Tag == a.Style);
         foreach (RadioButton rb in ShapePresets.Children)
+            rb.IsChecked = MathF.Abs(float.Parse((string)rb.Tag, CultureInfo.InvariantCulture) - a.Roundness) < 0.005f;
+        BuildSlots();
+        SyncPicker();
+    }
+
+    private void SyncPicker()
+    {
+        var hex = SlotValue(_slot);
+        PickerTitle.Text = SlotName(_slot);
+        PickerHint.Text = hex is null ? "Following the theme. Pick any colour to customise." : $"Custom: {hex}";
+        UseTheme.Visibility = hex is null ? Visibility.Collapsed : Visibility.Visible;
+        var wasLoading = _loading;
+        _loading = true;
+        Picker.Color = ColorPicker.Parse(hex ?? ThemeColourFor(_slot)) ?? Colors.White;
+        _loading = wasLoading;
+    }
+
+    // ---------------------------------------------------------------- colour slots
+
+    private string? SlotValue(Slot s) => s switch
+    {
+        Slot.Fill => _current.Color,
+        Slot.GradientEnd => _current.Color2,
+        _ => _current.OutlineColor,
+    };
+
+    private static string SlotName(Slot s) => s switch
+    {
+        Slot.Fill => "Fill colour",
+        Slot.GradientEnd => "Gradient end colour",
+        _ => "Outline colour",
+    };
+
+    /// <summary>What the theme would use for a slot, so the picker starts from what you see.</summary>
+    private string ThemeColourFor(Slot s)
+    {
+        var dark = Application.Current.Resources["Color.Bg"] is Color bg && bg.R < 128;
+        return s switch
         {
-            var preset = float.Parse((string)rb.Tag, CultureInfo.InvariantCulture);
-            rb.IsChecked = MathF.Abs(preset - a.Roundness) < 0.005f;
-        }
-        foreach (Border sw in Swatches.Children)
+            Slot.Outline => dark ? "#3C3052" : "#E2D6F5",
+            Slot.GradientEnd => _current.Color ?? (dark ? "#3A2C52" : "#FFFFFF"),
+            _ => dark ? "#221A2E" : "#F6F0FF",
+        };
+    }
+
+    private void SetSlot(Slot s, string? hex)
+    {
+        if (s == Slot.Outline && hex is not null && Outline.IsChecked != true)
         {
-            var selected = (string?)sw.Tag == a.Color;
-            sw.BorderThickness = new Thickness(selected ? 3 : 1);
-            sw.SetResourceReference(Border.BorderBrushProperty, selected ? "Brush.FocusRing" : "Brush.Border");
-            AutomationPropertiesHelper.SetSelected(sw, selected);
+            _loading = true; Outline.IsChecked = true; _loading = false;   // picking an outline colour turns the outline on
         }
+        var next = s switch
+        {
+            Slot.Fill => ReadSliders() with { Color = hex },
+            Slot.GradientEnd => ReadSliders() with { Color2 = hex },
+            _ => ReadSliders() with { OutlineColor = hex },
+        };
+        Apply(next);
+    }
+
+    private void BuildSlots()
+    {
+        Slots.Children.Clear();
+        var slots = new List<Slot>();
+        if (_current.Style != DockStyles.Outline) slots.Add(Slot.Fill);
+        if (_current.Style == DockStyles.Gradient) slots.Add(Slot.GradientEnd);
+        slots.Add(Slot.Outline);
+
+        foreach (var s in slots)
+        {
+            var hex = SlotValue(s);
+            var selected = s == _slot;
+            var swatch = new Border
+            {
+                Width = 28, Height = 28, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1),
+                Background = hex is null ? ThemeSwatchBrush() : new SolidColorBrush(ColorPicker.Parse(hex)!.Value),
+            };
+            swatch.SetResourceReference(Border.BorderBrushProperty, "Brush.Border");
+            var name = new TextBlock { Text = SlotName(s), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+            name.SetResourceReference(StyleProperty, "Text.BodyStrong");
+            var value = new TextBlock { Text = hex ?? "Theme", VerticalAlignment = VerticalAlignment.Center };
+            value.SetResourceReference(StyleProperty, "Text.Muted");
+            DockPanel.SetDock(swatch, System.Windows.Controls.Dock.Left);
+            DockPanel.SetDock(name, System.Windows.Controls.Dock.Left);
+            DockPanel.SetDock(value, System.Windows.Controls.Dock.Right);
+
+            var row = new Border
+            {
+                Padding = new Thickness(10, 8, 12, 8), CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 0, 0, 6),
+                BorderThickness = new Thickness(selected ? 2 : 1), Focusable = true, Cursor = Cursors.Hand,
+                Child = new DockPanel { LastChildFill = false, Children = { swatch, name, value } },
+            };
+            row.SetResourceReference(Border.BorderBrushProperty, selected ? "Brush.FocusRing" : "Brush.Border");
+            row.SetResourceReference(Border.BackgroundProperty, selected ? "Brush.AccentSoft" : "Brush.SurfaceRaised");
+            AutomationProperties.SetName(row, $"{SlotName(s)}, {hex ?? "theme colour"}{(selected ? ", selected" : "")}");
+            void Choose() { _slot = s; BuildSlots(); SyncPicker(); }
+            row.MouseLeftButtonUp += (_, _) => Choose();
+            row.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Choose(); e.Handled = true; } };
+            Slots.Children.Add(row);
+        }
+    }
+
+    private static Brush ThemeSwatchBrush() => new LinearGradientBrush
+    {
+        StartPoint = new Point(0, 0), EndPoint = new Point(1, 1),
+        GradientStops =
+        {
+            new GradientStop((Color)ColorConverter.ConvertFromString("#F6F0FF"), 0.5),
+            new GradientStop((Color)ColorConverter.ConvertFromString("#221A2E"), 0.5),
+        },
+    };
+
+    // ---------------------------------------------------------------- style cards
+
+    private void BuildStyleCards()
+    {
+        foreach (var (id, name, blurb) in Styles)
+        {
+            var sample = new Border { Height = 22, Margin = new Thickness(0, 0, 0, 8), CornerRadius = new CornerRadius(11) };
+            var lilac = Color.FromRgb(0xB4, 0x97, 0xFF);
+            switch (id)
+            {
+                case DockStyles.Glass:
+                    sample.Background = new LinearGradientBrush(Color.FromArgb(230, 255, 255, 255), Color.FromArgb(150, 217, 200, 255), 90);
+                    sample.BorderBrush = new SolidColorBrush(Color.FromRgb(0xCD, 0xB6, 0xF5));
+                    sample.BorderThickness = new Thickness(1);
+                    break;
+                case DockStyles.Solid:
+                    sample.Background = new SolidColorBrush(lilac);
+                    break;
+                case DockStyles.Gradient:
+                    sample.Background = new LinearGradientBrush(lilac, Color.FromRgb(0xF4, 0xA6, 0xC8), 0);
+                    break;
+                default:
+                    sample.BorderBrush = new SolidColorBrush(lilac);
+                    sample.BorderThickness = new Thickness(2);
+                    break;
+            }
+            var title = new TextBlock { Text = name };
+            title.SetResourceReference(StyleProperty, "Text.BodyStrong");
+            var sub = new TextBlock { Text = blurb };
+            sub.SetResourceReference(StyleProperty, "Text.Caption");
+            var card = new Border
+            {
+                Tag = id, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(10), CornerRadius = new CornerRadius(12),
+                Focusable = true, Cursor = Cursors.Hand, Child = new StackPanel { Children = { sample, title, sub } },
+            };
+            AutomationProperties.SetName(card, $"{name} style: {blurb}");
+            void Choose() => Apply(ReadSliders() with { Style = id });
+            card.MouseLeftButtonUp += (_, _) => Choose();
+            card.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Choose(); e.Handled = true; } };
+            StyleCards.Children.Add(card);
+        }
+    }
+
+    private static void Select(Border card, bool on)
+    {
+        card.BorderThickness = new Thickness(on ? 2 : 1);
+        card.SetResourceReference(Border.BorderBrushProperty, on ? "Brush.FocusRing" : "Brush.Border");
+        card.SetResourceReference(Border.BackgroundProperty, on ? "Brush.AccentSoft" : "Brush.SurfaceRaised");
+    }
+
+    // ---------------------------------------------------------------- recent colours
+
+    private IEnumerable<string> LoadRecent()
+    {
+        try { return JsonSerializer.Deserialize<string[]>(_store.GetSetting(RecentKey) ?? "[]") ?? []; }
+        catch (JsonException) { return []; }
+    }
+
+    private void RememberCurrent()
+    {
+        if (SlotValue(_slot) is null) return;
+        Picker.PushRecent();
+        _store.SetSetting(RecentKey, JsonSerializer.Serialize(Picker.Recent));
     }
 
     // ---------------------------------------------------------------- events
@@ -85,140 +287,33 @@ public partial class AppearanceWindow : Window
     private void OnChanged(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        Apply(ReadControls());
+        Apply(ReadSliders());
     }
 
     private void OnShapePreset(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        Roundness.Value = float.Parse((string)((RadioButton)sender).Tag, CultureInfo.InvariantCulture) * 100;   // fires OnChanged
+        Roundness.Value = float.Parse((string)((RadioButton)sender).Tag, CultureInfo.InvariantCulture) * 100;
     }
 
-    private void SetColour(string? hex)
-    {
-        HexError.Visibility = Visibility.Collapsed;
-        _loading = true;
-        Hex.Text = hex ?? "";
-        _loading = false;
-        Apply(ReadControls() with { Color = hex });
-    }
+    private void OnAnglePreset(object sender, RoutedEventArgs e) =>
+        Angle.Value = double.Parse((string)((Button)sender).Tag, CultureInfo.InvariantCulture);
 
-    private void OnHexCommitted(object sender, RoutedEventArgs e)
-    {
-        var text = Hex.Text.Trim();
-        if (text.Length == 6 && !text.StartsWith('#')) text = "#" + text;
-        if (text.Length == 0) { SetColour(null); return; }
-        if (!DockAppearance.IsHexColor(text)) { HexError.Visibility = Visibility.Visible; return; }
-        SetColour(text.ToUpperInvariant());
-    }
-
-    private void OnHexKey(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter) { OnHexCommitted(sender, e); e.Handled = true; }
-    }
-
-    private void OnMoreColours(object sender, RoutedEventArgs e)
-    {
-        var start = _current.Color ?? "#F6F0FF";
-        var picked = ColourDialog.Pick(new WindowInteropHelper(this).Handle, start);
-        if (picked is not null) SetColour(picked);
-    }
+    private void OnUseTheme(object sender, RoutedEventArgs e) => SetSlot(_slot, null);
 
     private void OnReset(object sender, RoutedEventArgs e)
     {
+        _slot = Slot.Fill;
         LoadControls(DockAppearance.Default);
-        _current = DockAppearance.Default;
-        Apply(_current);
+        Apply(DockAppearance.Default);
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();   // Closed restores the original
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
-        OnHexCommitted(sender, e);
-        if (HexError.Visibility == Visibility.Visible) return;
-        _dock.SaveAppearance(ReadControls());
+        _dock.SaveAppearance(ReadSliders());
         _saved = true;
         Close();
-    }
-
-    // ---------------------------------------------------------------- swatches
-
-    private void BuildSwatches()
-    {
-        foreach (var (name, hex) in Palette)
-        {
-            var sw = new Border
-            {
-                Width = 34, Height = 34, CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 0, 6, 6),
-                Tag = hex, Focusable = true, Cursor = Cursors.Hand, ToolTip = name,
-            };
-            if (hex is null)
-            {
-                // "theme" swatch: half light, half dark lilac
-                sw.Background = new LinearGradientBrush((Color)ColorConverter.ConvertFromString("#F6F0FF"),
-                    (Color)ColorConverter.ConvertFromString("#221A2E"), new Point(0, 0), new Point(1, 1))
-                {
-                    GradientStops = { new GradientStop((Color)ColorConverter.ConvertFromString("#F6F0FF"), 0.5), new GradientStop((Color)ColorConverter.ConvertFromString("#221A2E"), 0.5) },
-                };
-            }
-            else sw.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-            System.Windows.Automation.AutomationProperties.SetName(sw, name);
-            sw.MouseLeftButtonUp += (_, _) => SetColour(hex);
-            sw.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { SetColour(hex); e.Handled = true; } };
-            sw.GotKeyboardFocus += (_, _) => sw.SetResourceReference(Border.BorderBrushProperty, "Brush.FocusRing");
-            sw.LostKeyboardFocus += (_, _) => SyncPresetsAndLabels(_current);
-            Swatches.Children.Add(sw);
-        }
-    }
-}
-
-/// <summary>Screen readers: mark the chosen swatch as selected via its name suffix.</summary>
-internal static class AutomationPropertiesHelper
-{
-    public static void SetSelected(Border swatch, bool selected)
-    {
-        var name = (string)swatch.ToolTip;
-        System.Windows.Automation.AutomationProperties.SetName(swatch, selected ? $"{name}, selected" : name);
-    }
-}
-
-/// <summary>The standard Windows colour dialog (full palette plus custom colours).</summary>
-internal static class ColourDialog
-{
-    [StructLayout(LayoutKind.Sequential)]
-    private struct CHOOSECOLOR
-    {
-        public int lStructSize;
-        public nint hwndOwner, hInstance;
-        public int rgbResult;
-        public nint lpCustColors;
-        public int Flags;
-        public nint lCustData, lpfnHook, lpTemplateName;
-    }
-
-    [DllImport("comdlg32.dll", EntryPoint = "ChooseColorW")]
-    private static extern bool ChooseColor(ref CHOOSECOLOR cc);
-
-    private const int CC_RGBINIT = 0x1, CC_FULLOPEN = 0x2;
-    private static readonly int[] Custom = new int[16];
-
-    public static string? Pick(nint owner, string startHex)
-    {
-        var c = (Color)ColorConverter.ConvertFromString(startHex);
-        var custom = GCHandle.Alloc(Custom, GCHandleType.Pinned);
-        try
-        {
-            var cc = new CHOOSECOLOR
-            {
-                lStructSize = Marshal.SizeOf<CHOOSECOLOR>(), hwndOwner = owner,
-                rgbResult = c.R | (c.G << 8) | (c.B << 16),        // COLORREF is 0x00BBGGRR
-                lpCustColors = custom.AddrOfPinnedObject(), Flags = CC_RGBINIT | CC_FULLOPEN,
-            };
-            if (!ChooseColor(ref cc)) return null;
-            int r = cc.rgbResult & 0xFF, g = (cc.rgbResult >> 8) & 0xFF, b = (cc.rgbResult >> 16) & 0xFF;
-            return $"#{r:X2}{g:X2}{b:X2}";
-        }
-        finally { custom.Free(); }
     }
 }

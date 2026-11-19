@@ -130,21 +130,51 @@ public sealed class DockHost : IDisposable
         _store.SetAppearance(_containerId, _appearance);
     }
 
-    /// <summary>Theme colours plus the user's colour/opacity/outline choices.</summary>
+    /// <summary>Theme colours plus the user's style, colours, opacity and outline choices.</summary>
     private DockStyle ComposeStyle()
     {
         var t = _theme.DockStyle();
         var a = _appearance;
         var k = a.Opacity / 100f;
-        var fill = (a.Color is null ? t.Background : Argb.FromRgba(a.Color)).WithAlpha(k);
-        var outline = a.Outline && a.Opacity > 0 ? t.Outline.WithAlphaScaled(MathF.Min(1, k * 1.5f)) : new Argb(0);
+        var baseFill = a.Color is null ? t.Background : Argb.FromRgba(a.Color);
+        var outlineColour = a.OutlineColor is null ? t.Outline : Argb.FromRgba(a.OutlineColor);
+        var none = new Argb(0);
+
+        var fill = baseFill.WithAlpha(k);
+        Argb? end = null;
+        var highlight = none;
+        var outline = a.Outline && a.Opacity > 0 ? outlineColour.WithAlpha(MathF.Min(1, k * 1.5f)) : none;
+
+        switch (a.Style)
+        {
+            case DockStyles.Glass:
+                highlight = t.Highlight.WithAlphaScaled(k);
+                break;
+            case DockStyles.Gradient:
+                end = (a.Color2 is null ? Lighter(baseFill) : Argb.FromRgba(a.Color2)).WithAlpha(k);
+                break;
+            case DockStyles.Outline:
+                fill = none;   // just the line; opacity sets how strong it is
+                outline = a.Opacity > 0 ? outlineColour.WithAlpha(k) : none;
+                break;
+        }
         return t with
         {
             Background = fill,
+            BackgroundEnd = end,
+            GradientAngle = a.GradientAngle,
             Outline = outline,
-            Highlight = t.Highlight.WithAlphaScaled(k),
-            Shadow = t.Shadow.WithAlphaScaled(k),
+            OutlineWidth = a.Style == DockStyles.Outline ? MathF.Max(1.5f, a.OutlineWidth) : a.OutlineWidth,
+            Highlight = highlight,
+            Shadow = a.Style == DockStyles.Outline ? none : t.Shadow.WithAlphaScaled(k),
         };
+    }
+
+    /// <summary>The default gradient end: the fill mixed 45% toward white.</summary>
+    private static Argb Lighter(Argb c)
+    {
+        uint Mix(int shift) => (uint)(((c.Value >> shift) & 0xFF) + (255 - ((c.Value >> shift) & 0xFF)) * 0.45f);
+        return new Argb(0xFF000000 | (Mix(16) << 16) | (Mix(8) << 8) | Mix(0));
     }
 
     // ------------------------------------------------------------------ placement
