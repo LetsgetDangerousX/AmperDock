@@ -9,6 +9,7 @@ Writes  src/AmperDock.App/LookPacks/
           cursors/<set>/arrow.cur, hand.cur    multi-size Windows cursors (32/48/64/96/128)
           folders/<name>.ico                   multi-size Windows icons (16..256)
           trails/<kind>_<n>.png                128px particle sprites
+          wallpapers/<pack>.png                2560x1440 theme-pack wallpapers (from replica/design/wallpapers)
           previews/...png                      small images for the Look packs window
           lookpacks.json                       the catalogue the app reads
 
@@ -40,12 +41,20 @@ CURSOR_SETS = [
     ("sakura", "Sakura", "cursor-sakura-arrow", (3, 3), "cursor-sakura-hand", (12, 2)),
     ("starry", "Starry night", "cursor-starry-arrow", (3, 3), "cursor-starry-hand", (12, 2)),
     ("strawberry", "Strawberry", "cursor-strawberry-arrow", (3, 3), "cursor-strawberry-hand", (12, 2)),
+    # theme packs (replica/design/make_pack_art.py)
+    ("acorn", "Acorn", "cursor-acorn-arrow", (3, 3), "cursor-acorn-hand", (12, 2)),
+    ("ghost", "Little ghost", "cursor-ghost-arrow", (3, 3), "cursor-ghost-hand", (12, 2)),
+    ("neon", "Neon", "cursor-neon-arrow", (3, 3), "cursor-neon-hand", (12, 2)),
+    ("quill", "Quill", "cursor-quill-arrow", (3, 3), "cursor-quill-hand", (12, 2)),
+    ("planet", "Planet", "cursor-planet-arrow", (3, 3), "cursor-planet-hand", (12, 2)),
+    ("cloudy", "Cloudy", "cursor-cloudy-arrow", (3, 3), "cursor-cloudy-hand", (12, 2)),
 ]
 CURSOR_SIZES = [32, 48, 64, 96, 128]
 
 FOLDERS = [
     ("purrple", "Purrple"), ("mushroom", "Mushroom"), ("bunny", "Bunny"), ("bear", "Bear"), ("cloud", "Cloud"),
     ("holo", "Holographic"), ("sakura", "Sakura"), ("strawberry", "Strawberry"), ("pixel-heart", "Pixel heart"),
+    ("leaf", "Autumn leaf"), ("ghost", "Ghost"), ("neon", "Neon"), ("book", "Book"), ("planet", "Planet"),
 ]
 ICON_SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
 
@@ -76,10 +85,38 @@ TRAILS = [
      dict(spacing=12, jitter=4, life=1.4, size=[9, 24], vx=[-15, 15], vy=[-60, -30], pop=True)),
     ("candy", "Candy stars", "3D", "candy", [(a, b) for a, b in PASTELS],
      dict(spacing=18, life=1.2, size=[13, 21], vx=[-24, 24], vy=[-12, -12], spin=[-2.4, 2.4], gravity=108, pop=True)),
+    # theme packs
+    ("planets", "Planets", "space", "planet", [("#C9A0E8", "#F7A8C8"), ("#8FD3F4", "#FFE07A"), ("#F59A82", "#C9A0E8"), ("#FFF1C9", "#F7A8C8")],
+     dict(spacing=30, life=1.5, size=[16, 22], vx=[-12, 12], vy=[-24, -12], rot=[-0.3, 0.3], pop=True)),
+    ("ghosts", "Little ghosts", "Halloween", "ghost", [("#FFFDF8", None), ("#F3ECFF", None)],
+     dict(spacing=32, life=1.5, size=[18, 22], vy=[-30, -30], sway=14, pop=True)),
+    ("neon", "Neon sparks", "synthwave", "glow", [("#FF4FD8", None), ("#5BE7FF", None), ("#B497FF", None)],
+     dict(spacing=6, count=2, jitter=4, life=0.7, size=[8, 16], vx=[-18, 18], vy=[-30, 10], shrink=True)),
+    ("fireflies", "Fireflies", "cozy", "glow", [("#FFD27A", None), ("#FFE9A8", None)],
+     dict(spacing=16, life=1.6, size=[8, 14], vx=[-14, 14], vy=[-28, -10], sway=18, shrink=True)),
 ]
+
+# Theme packs: a wallpaper plus the dock theme, cursors, trail and folder icon that go with it.
+# Wallpapers come from replica/design/make_wallpapers.py; dock themes from tools/build_dockthemes.py.
+THEME_PACKS = [
+    dict(id="cozy-leaves", name="Cozy Leaves", mood="Autumn", blurb="Falling maple leaves and two cats on the garden fence.",
+         dock_theme="autumn-leaf", cursor_set="acorn", trail="leaves", folder_icon="leaf"),
+    dict(id="boo-patch", name="Boo Patch", mood="Halloween", blurb="A sweet ghost with a lantern and a pumpkin with cat ears.",
+         dock_theme="boo", cursor_set="ghost", trail="ghosts", folder_icon="ghost"),
+    dict(id="neon-drive", name="Neon Drive", mood="Synthwave", blurb="A sliced sunset, a glowing grid road and a neon cat.",
+         dock_theme="neon", cursor_set="neon", trail="neon", folder_icon="neon"),
+    dict(id="moonlit-library", name="Moonlit Library", mood="Dark academia", blurb="A castle under the moon, old books and a sleepy candle.",
+         dock_theme="library", cursor_set="quill", trail="fireflies", folder_icon="book"),
+    dict(id="cosmic-pals", name="Cosmic Pals", mood="Space", blurb="A big lilac planet with a glowing ring, and Planet Pals drifting by.",
+         dock_theme="starlight", cursor_set="planet", trail="planets", folder_icon="planet"),
+    dict(id="cloud-meadow", name="Cloud Meadow", mood="Dreamy sky", blurb="Puffy clouds over a flower meadow. One of them is a friend.",
+         dock_theme="cloud", cursor_set="cloudy", trail="butterflies", folder_icon="cloud"),
+]
+WALLPAPER_SIZE = (2560, 1440)
+DOCK_PREVIEWS = ROOT / "src" / "AmperDock.App" / "DockThemes" / "previews"
 # how big each drawing is relative to its r parameter, so every sprite fills its square the same way
 KIND_FILL = {"paw": None, "star": 1.0, "heart": 1.35, "kitty": 1.3, "shroom": 1.15, "bubble": 1.25, "candy": 1.15,
-             "petal": 1.0, "butterfly": 1.15, "leaf": 1.25, "flake": 1.0}
+             "petal": 1.0, "butterfly": 1.15, "leaf": 1.25, "flake": 1.0, "planet": 2.0, "ghost": 1.25, "glow": 1.0}
 
 
 def find_edge():
@@ -203,8 +240,14 @@ def main():
                 items.append((f"ico/{fid}/{s}", ASSETS / f"folder-{fid}.svg", s))
         rendered = svg_sheet(items, work)
         sprites = trail_sheet(work)
+        walls = {}
+        for p in THEME_PACKS:
+            src = DESIGN / "wallpapers" / f"{p['id']}.svg"
+            w, h = WALLPAPER_SIZE
+            walls[p["id"]] = render(f'<html><body style="margin:0"><img src="{src.as_uri()}" style="display:block;width:{w}px;height:{h}px"></body></html>',
+                                    w, h, work).convert("RGB")
 
-    catalogue = {"cursor_sets": [], "folder_icons": [], "trails": []}
+    catalogue = {"cursor_sets": [], "folder_icons": [], "trails": [], "theme_packs": []}
     for sid, name, _, ahs, _, hhs in CURSOR_SETS:
         for part, hs in (("arrow", ahs), ("hand", hhs)):
             write_icon_file(OUT / "cursors" / sid / f"{part}.cur", [rendered[f"cur/{sid}/{part}/{s}"] for s in CURSOR_SIZES], hs)
@@ -224,6 +267,21 @@ def main():
             files.append(f)
         sprites[(tid, 0)].resize((48, 48), Image.LANCZOS).save(OUT / "previews" / f"trail-{tid}.png")
         catalogue["trails"].append({"id": tid, "name": name, "tag": tag, "sprites": files, "preview": f"previews/trail-{tid}.png", **motion})
+
+    (OUT / "wallpapers").mkdir(exist_ok=True)
+    for p in THEME_PACKS:
+        wall = walls[p["id"]]
+        wall.save(OUT / "wallpapers" / f"{p['id']}.png", optimize=True)
+        # the card: the wallpaper with its dock theme's preview sitting at the bottom, like on a real screen
+        card = wall.resize((320, 180), Image.LANCZOS).convert("RGBA")
+        dock_png = DOCK_PREVIEWS / f"{p['dock_theme']}.png"
+        if dock_png.exists():
+            dock = Image.open(dock_png).convert("RGBA")
+            k = 150 / dock.width
+            dock = dock.resize((150, max(1, round(dock.height * k))), Image.LANCZOS)
+            card.alpha_composite(dock, ((320 - dock.width) // 2, 180 - dock.height - 2))
+        card.convert("RGB").save(OUT / "previews" / f"pack-{p['id']}.png")
+        catalogue["theme_packs"].append(dict(p, wallpaper=f"wallpapers/{p['id']}.png", preview=f"previews/pack-{p['id']}.png"))
 
     (OUT / "lookpacks.json").write_text(json.dumps(catalogue, indent=2), encoding="utf-8")
     n = sum(1 for _ in OUT.rglob("*") if _.is_file())

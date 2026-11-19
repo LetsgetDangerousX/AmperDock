@@ -77,7 +77,8 @@ public partial class AppearanceWindow : Window
         DecorationsBox.IsChecked = a.Decorations;
         ReflectBox.IsChecked = a.Reflection > 0;
         MatchBox.IsChecked = a.MatchWallpaper;
-        TintSlider.Value = a.IconTint;
+        TintBox.IsChecked = a.IconTint > 0;
+        if (a.IconTint > 0) TintSlider.Value = a.IconTint;
         if (a.Reflection > 0) ReflectSlider.Value = a.Reflection;
         _current = a;
         SyncAll();
@@ -94,7 +95,7 @@ public partial class AppearanceWindow : Window
         Decorations = DecorationsBox.IsChecked == true,
         Reflection = ReflectBox.IsChecked == true ? (int)Math.Round(ReflectSlider.Value) : 0,
         MatchWallpaper = MatchBox.IsChecked == true,
-        IconTint = (int)Math.Round(TintSlider.Value),
+        IconTint = TintBox.IsChecked == true ? (int)Math.Round(TintSlider.Value) : 0,
     };
 
     private void Apply(DockAppearance a)
@@ -112,7 +113,7 @@ public partial class AppearanceWindow : Window
         GradientPanel.Visibility = a.Style == DockStyles.Gradient ? Visibility.Visible : Visibility.Collapsed;
         OutlineWidthRow.IsEnabled = a.Outline || a.Style == DockStyles.Outline;
         ReflectRow.IsEnabled = a.Reflection > 0;
-        TintPanel.IsEnabled = a.MatchWallpaper;
+        TintPanel.IsEnabled = a.IconTint > 0;
         // colours come from the wallpaper while matching, so the picker steps aside
         Slots.IsEnabled = Picker.IsEnabled = PaletteSwatches.IsEnabled = UseTheme.IsEnabled = !a.MatchWallpaper;
         if (_slot == Slot.GradientEnd && a.Style != DockStyles.Gradient) _slot = Slot.Fill;

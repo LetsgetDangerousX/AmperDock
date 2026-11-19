@@ -18,7 +18,41 @@
       <StackPanel Margin="28,22,28,28">
         <TextBlock Style="{StaticResource Text.Display}" Text="Look packs"/>
         <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0"
-                   Text="Match your whole desktop to your dock: cursors, a cursor trail and folder icons."/>
+                   Text="Match your whole desktop to your dock: a whole theme at once, or cursors, a trail and folder icons one by one."/>
+
+        <!-- theme packs -->
+        <TextBlock Style="{StaticResource Text.Title}" Margin="0,28,0,4" Text="Theme packs"/>
+        <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,0,12" TextWrapping="Wrap"
+                   Text="A wallpaper with a matching dock, cursors, trail and folder icons. Pick one, choose what to change, and apply. Undo puts everything back."/>
+        <WrapPanel x:Name="PackCards"/>
+        <Border x:Name="PackPanel" Margin="0,4,0,0" Padding="16,14" CornerRadius="14" BorderThickness="1"
+                BorderBrush="{DynamicResource Brush.Border}" Background="{DynamicResource Brush.SurfaceRaised}">
+          <StackPanel>
+            <TextBlock x:Name="PackTitle" Style="{StaticResource Text.Subtitle}"/>
+            <TextBlock x:Name="PackBlurb" Style="{StaticResource Text.Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
+            <TextBlock Style="{StaticResource Text.BodyStrong}" Margin="0,0,0,6" Text="What to change"/>
+            <WrapPanel>
+              <CheckBox x:Name="PartWallpaper" Content="Wallpaper" IsChecked="True" Margin="0,0,18,6"/>
+              <CheckBox x:Name="PartDock" Content="Dock theme (all your docks)" IsChecked="True" Margin="0,0,18,6"/>
+              <CheckBox x:Name="PartCursors" Content="Cursors" IsChecked="True" Margin="0,0,18,6"/>
+              <CheckBox x:Name="PartTrail" Content="Cursor trail" IsChecked="True" Margin="0,0,18,6"/>
+              <CheckBox x:Name="PartFolders" Content="Folder icons" IsChecked="True" Margin="0,0,18,6"/>
+            </WrapPanel>
+            <TextBlock x:Name="FoldersNote" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,6"
+                       Text="Folder icons go on Documents, Downloads, Pictures, Music and Videos, the folders on your docks, and any you've already customised."/>
+            <StackPanel x:Name="SlideshowChoice" Margin="0,4,0,0">
+              <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,4"
+                         Text="You have a wallpaper slideshow running. Setting a wallpaper stops it (Undo starts it again)."/>
+              <RadioButton x:Name="WallSet" GroupName="wall" Content="Set this wallpaper" IsChecked="True" Margin="0,0,0,4"/>
+              <RadioButton x:Name="WallAdd" GroupName="wall" Content="Add it to my slideshow instead"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+              <Button x:Name="ApplyPackButton" Style="{StaticResource Btn.Primary}" Click="OnApplyPack"/>
+              <Button x:Name="UndoPackButton" Style="{StaticResource Btn.Secondary}" Margin="10,0,0,0" Content="Undo theme pack" Click="OnUndoPack"/>
+              <TextBlock x:Name="PackStatus" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" MaxWidth="320"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
 
         <!-- cursors -->
         <TextBlock Style="{StaticResource Text.Title}" Margin="0,28,0,4" Text="Cursors"/>

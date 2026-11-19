@@ -14,7 +14,7 @@ public sealed record FolderLook(string Path, string IconId, string? PreviousFile
 /// Files Windows points at (cursors, icons) are copied to %LOCALAPPDATA%\AmperDock\looks so they keep
 /// working when the app updates to a new folder.
 /// </summary>
-public sealed class LookService : IDisposable
+public sealed partial class LookService : IDisposable
 {
     private const string KeyCursorSet = "look.cursor_set", KeyCursorBackup = "look.cursor_backup",
         KeyTrail = "look.trail", KeyFolders = "look.folders";

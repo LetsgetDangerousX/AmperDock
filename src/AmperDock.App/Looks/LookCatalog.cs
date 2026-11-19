@@ -36,6 +36,7 @@ public sealed class LookCatalog
     [JsonPropertyName("cursor_sets")] public List<CursorSetInfo> CursorSets { get; init; } = [];
     [JsonPropertyName("folder_icons")] public List<FolderIconInfo> FolderIcons { get; init; } = [];
     public List<TrailInfo> Trails { get; init; } = [];
+    [JsonPropertyName("theme_packs")] public List<ThemePackInfo> ThemePacks { get; init; } = [];
 
     public static string Root => Path.Combine(AppContext.BaseDirectory, "LookPacks");
 
@@ -44,7 +45,7 @@ public sealed class LookCatalog
         var path = Path.Combine(Root, "lookpacks.json");
         if (!File.Exists(path)) return new LookCatalog();
         return JsonSerializer.Deserialize<LookCatalog>(File.ReadAllText(path),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new LookCatalog();
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower }) ?? new LookCatalog();
     }
 
     public static string FullPath(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));

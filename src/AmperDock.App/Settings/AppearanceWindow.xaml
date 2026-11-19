@@ -41,18 +41,17 @@
 
           <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,4" Text="Match my wallpaper"/>
           <TextBlock Style="{StaticResource Text.Caption}" Margin="0,0,0,8" TextWrapping="Wrap"
-                     Text="The dock takes its colours from your wallpaper, and changes with it when a slideshow moves on."/>
-          <CheckBox x:Name="MatchBox" Content="Match my wallpaper" Checked="OnChanged" Unchecked="OnChanged"/>
-          <StackPanel x:Name="TintPanel" Margin="0,10,0,0">
-            <TextBlock Style="{StaticResource Text.BodyStrong}" Margin="0,0,0,4" Text="Tint the icons too"/>
+                     Text="Colours that follow your wallpaper, and change with it when a slideshow moves on. Pick either, or both."/>
+          <CheckBox x:Name="MatchBox" Content="Dock colours follow my wallpaper" Checked="OnChanged" Unchecked="OnChanged"/>
+          <CheckBox x:Name="TintBox" Margin="0,8,0,0" Content="Icon colours follow my wallpaper" Checked="OnChanged" Unchecked="OnChanged"/>
+          <StackPanel x:Name="TintPanel" Margin="28,6,0,0">
+            <TextBlock Style="{StaticResource Text.Caption}" Margin="0,0,0,2" Text="How strongly"/>
             <DockPanel>
               <TextBlock DockPanel.Dock="Right" Width="48" TextAlignment="Right" VerticalAlignment="Center" Style="{StaticResource Text.Body}"
                          Text="{Binding Value, ElementName=TintSlider, StringFormat={}{0:0}%}"/>
-              <Slider x:Name="TintSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
-                      AutomationProperties.Name="How strongly to tint the icons"/>
+              <Slider x:Name="TintSlider" Minimum="10" Maximum="100" SmallChange="1" LargeChange="10" Value="40" ValueChanged="OnChanged"
+                      AutomationProperties.Name="How strongly the icons take the wallpaper's colour"/>
             </DockPanel>
-            <TextBlock Style="{StaticResource Text.Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
-                       Text="0% leaves the icons as they are. A little goes a long way."/>
           </StackPanel>
 
           <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Style"/>

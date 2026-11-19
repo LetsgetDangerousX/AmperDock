@@ -541,12 +541,13 @@ public sealed class DockRenderer : IDisposable
     {
         var gap = 2 * s.Scale;
         using var stops = ctx.CreateGradientStopCollection(
-            [new GradientStop(0, new Color4(1, 1, 1, Math.Clamp(s.Reflection, 0, 1) * 0.6f)), new GradientStop(1, new Color4(1, 1, 1, 0))], ExtendMode.Clamp);
+            [new GradientStop(0, new Color4(1, 1, 1, Math.Clamp(s.Reflection, 0, 1))), new GradientStop(0.35f, new Color4(1, 1, 1, Math.Clamp(s.Reflection, 0, 1) * 0.55f)),
+             new GradientStop(1, new Color4(1, 1, 1, 0))], ExtendMode.Clamp);
         foreach (var icon in s.Icons)
         {
             if (icon.NoReflection || icon.IconKey is null || !_icons.TryGetValue(icon.IconKey, out var bmp)) continue;
             var r = icon.Rect;
-            var depth = 0.42f * MathF.Min(r.W, r.H);
+            var depth = 0.5f * MathF.Min(r.W, r.H);
             // mirror line, the fade's direction, and the patch the reflection may cover, for each edge
             var (mirror, from, to, area) = s.Edge switch
             {

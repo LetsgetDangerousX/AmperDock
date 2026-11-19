@@ -17,7 +17,9 @@ dotnet run --project src/AmperDock.App
 - Rest the pointer on an open app to see live previews of its windows: click one to switch to it, or use its ✕ to close it.
 - **New desktop shelf** (right-click menu) makes a dock that lives on the desktop under your windows. Drop desktop icons on it to tidy them:
   the desktop copy is only hidden, never moved, and comes back when you take it off the shelf or remove the shelf.
-- Dock appearance has **Match my wallpaper** (colours follow your wallpaper and slideshow, with an optional icon tint) and **Reflections**.
+- Dock appearance has **Dock colours follow my wallpaper**, **Icon colours follow my wallpaper** (separately) and **Reflections**.
+- Right-click → **Add a widget**: Mochi, Clock, Calendar, Recycle Bin, CPU and memory.
+- Look packs → **Theme packs** sets a wallpaper, dock theme, cursors, trail and folder icons together (or the ones you tick), with Undo.
 - Move the dock by dragging an empty part of it (or Alt+drag anywhere on it): drop it near any screen edge to dock it there, or anywhere else to float.
 - Settings live in `%APPDATA%\AmperDock\amperdock.db`. Use `--db <path>` to try it with a throwaway database.
 - `--gallery` opens the developer component gallery (a test page for the UI building blocks, not settings).
@@ -37,6 +39,8 @@ python tools/build_lookpacks.py
 
 python replica/design/make_dock_themes.py   # dock theme decorations and indicators
 python replica/design/make_planets.py       # Planet Pals (space themes)
+python replica/design/make_pack_art.py      # theme-pack folders, cursors and dock pieces
+python replica/design/make_wallpapers.py    # theme-pack wallpapers (then build_dockthemes, then build_lookpacks)
 python tools/build_dockthemes.py
 ```
 

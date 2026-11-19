@@ -30,8 +30,13 @@ public partial class App : Application
         base.OnStartup(e);
         DispatcherUnhandledException += (_, ex) => { Log(ex.Exception); ex.Handled = true; };
 
-        // one dock per user session: a second copy would fight over the same screen edge
-        _single = new Mutex(true, @"Local\AmperDock.SingleInstance", out var first);
+        // one dock per user session: a second copy would fight over the same screen edge.
+        // A copy with its own settings file (--db, for trying things out) counts separately.
+        var db = e.Args.SkipWhile(a => a != "--db").Skip(1).FirstOrDefault();
+        var name = db is null ? @"Local\AmperDock.SingleInstance"
+            : @"Local\AmperDock.SingleInstance." + Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(
+                System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(db).ToLowerInvariant())))[..16];
+        _single = new Mutex(true, name, out var first);
         if (!first) { Shutdown(); return; }
 
         _theme = new ThemeManager();
@@ -46,6 +51,14 @@ public partial class App : Application
         if (e.Args.SkipWhile(x => x != "--selftest-looks").Skip(1).FirstOrDefault() is { } report)
         {
             File.WriteAllText(report, LookSelfTest.Run(_looks));
+            Shutdown();
+            return;
+        }
+        if (e.Args.SkipWhile(x => x != "--selftest-wallpaper").Skip(1).FirstOrDefault() is { } wallReport)
+        {
+            // read-only: what Undo would put back (the wallpaper per monitor, or the slideshow and its timing)
+            File.WriteAllText(wallReport, System.Text.Json.JsonSerializer.Serialize(Wallpapers.Snapshot(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true })
+                + Environment.NewLine + "slideshow folder: " + Wallpapers.SlideshowFolder());
             Shutdown();
             return;
         }
@@ -102,8 +115,23 @@ public partial class App : Application
     private void OpenLooks()
     {
         if (_looksWindow is { IsLoaded: true }) { _looksWindow.Activate(); return; }
-        _looksWindow = new LookPacksWindow(_looks!);
+        _looksWindow = new LookPacksWindow(_looks!, new AppDockLooks(this));
         _looksWindow.Show();
+    }
+
+    /// <summary>The docks, as the look service sees them (theme packs change their looks, and give their folders icons).</summary>
+    private sealed class AppDockLooks(App app) : IDockLooks
+    {
+        public IReadOnlyList<(string DockId, DockAppearance Look)> Looks() => app._docks.Select(d => (d.ContainerId, d.Appearance)).ToList();
+
+        public void SetLook(string dockId, DockAppearance look)
+        {
+            if (app._docks.FirstOrDefault(d => d.ContainerId == dockId) is { } dock) dock.SaveAppearance(look);
+            else app._store!.SetAppearance(dockId, look);   // a dock that's switched off keeps it for next time
+        }
+
+        public IEnumerable<string> FoldersOnDocks() => app._store!.GetDocks().SelectMany(d => app._store.GetItems(d.Id))
+            .Where(i => i.Type == ItemTypes.Folder && i.Target is not null).Select(i => i.Target!);
     }
 
     private void StartDock(string id)

@@ -83,10 +83,11 @@ public sealed record DockAppearance
     /// <summary>Colour for the paw or dot indicator, or null for the theme's accent.</summary>
     public string? IndicatorColor { get; init; }
 
-    /// <summary>Take the dock's colours from the wallpaper (and follow it when it changes).</summary>
+    /// <summary>The dock's own colours follow the wallpaper (and change when it does).</summary>
     public bool MatchWallpaper { get; init; }
 
-    /// <summary>With MatchWallpaper: how strongly to wash the icons toward the wallpaper's colour, 0 to 100.</summary>
+    /// <summary>Icon colours follow the wallpaper: how strongly to wash them toward its colour, 0 (off) to 100.
+    /// Separate from <see cref="MatchWallpaper"/>: either can be on without the other.</summary>
     public int IconTint { get; init; }
 
     /// <summary>Reflections under the icons: 0 = off, else how strong (1 to 100).</summary>

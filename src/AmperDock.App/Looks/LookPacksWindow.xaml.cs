@@ -10,13 +10,17 @@ namespace AmperDock.App.Looks;
 public partial class LookPacksWindow : Window
 {
     private readonly LookService _looks;
+    private readonly IDockLooks _docks;
     private FolderIconInfo? _selectedIcon;
+    private ThemePackInfo? _selectedPack;
 
-    public LookPacksWindow(LookService looks)
+    public LookPacksWindow(LookService looks, IDockLooks docks)
     {
         _looks = looks;
+        _docks = docks;
         InitializeComponent();
         _selectedIcon = looks.Catalog.FolderIcons.FirstOrDefault();
+        _selectedPack = looks.Catalog.ThemePacks.FirstOrDefault(p => p.Id == looks.AppliedPack?.PackId) ?? looks.Catalog.ThemePacks.FirstOrDefault();
         Rebuild();
         looks.Changed += OnChanged;
         Closed += (_, _) => looks.Changed -= OnChanged;
@@ -26,9 +30,88 @@ public partial class LookPacksWindow : Window
 
     private void Rebuild()
     {
+        BuildPacks();
         BuildCursors();
         BuildTrails();
         BuildFolders();
+    }
+
+    // ---------------------------------------------------------------- theme packs
+
+    private void BuildPacks()
+    {
+        PackCards.Children.Clear();
+        var applied = _looks.AppliedPack?.PackId;
+        foreach (var pack in _looks.Catalog.ThemePacks)
+        {
+            var pic = new Image { Source = LookCatalog.Image(pack.Preview), Width = 208, Height = 117, Stretch = Stretch.UniformToFill };
+            RenderOptions.SetBitmapScalingMode(pic, BitmapScalingMode.HighQuality);
+            var clip = new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = pic };
+            clip.Clip = new RectangleGeometry(new Rect(0, 0, 208, 117), 10, 10);
+            var title = new TextBlock { Text = pack.Name, Margin = new Thickness(2, 8, 0, 0) };
+            title.SetResourceReference(StyleProperty, "Text.BodyStrong");
+            var mood = new TextBlock { Text = applied == pack.Id ? $"{pack.Mood} · applied" : pack.Mood, Margin = new Thickness(2, 0, 0, 0) };
+            mood.SetResourceReference(StyleProperty, "Text.Caption");
+            var selected = _selectedPack?.Id == pack.Id;
+            var card = new Border
+            {
+                Width = 226, Margin = new Thickness(0, 0, 10, 10), Padding = new Thickness(8), CornerRadius = new CornerRadius(14),
+                BorderThickness = new Thickness(selected ? 2 : 1), Focusable = true, Cursor = Cursors.Hand,
+                Child = new StackPanel { Children = { clip, title, mood } },
+            };
+            card.SetResourceReference(Border.BorderBrushProperty, selected ? "Brush.FocusRing" : "Brush.Border");
+            card.SetResourceReference(Border.BackgroundProperty, selected ? "Brush.AccentSoft" : "Brush.SurfaceRaised");
+            AutomationProperties.SetName(card, $"{pack.Name} theme pack, {pack.Mood}{(selected ? ", selected" : "")}");
+            void Pick() { _selectedPack = pack; BuildPacks(); }
+            card.MouseLeftButtonUp += (_, _) => Pick();
+            card.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Pick(); e.Handled = true; } };
+            PackCards.Children.Add(card);
+        }
+
+        PackPanel.Visibility = _selectedPack is null ? Visibility.Collapsed : Visibility.Visible;
+        if (_selectedPack is { } p)
+        {
+            PackTitle.Text = p.Name;
+            PackBlurb.Text = p.Blurb;
+            ApplyPackButton.Content = $"Apply {p.Name}";
+        }
+        string? slideshow = null;
+        try { slideshow = AmperDock.Shell.Wallpapers.SlideshowFolder(); } catch (System.Runtime.InteropServices.COMException) { }
+        SlideshowChoice.Visibility = slideshow is null ? Visibility.Collapsed : Visibility.Visible;
+        if (slideshow is null) WallSet.IsChecked = true;
+        UndoPackButton.IsEnabled = _looks.AppliedPack is not null;
+    }
+
+    private void OnApplyPack(object sender, RoutedEventArgs e)
+    {
+        if (_selectedPack is not { } pack) return;
+        var parts = PackParts.None;
+        if (PartWallpaper.IsChecked == true) parts |= PackParts.Wallpaper;
+        if (PartDock.IsChecked == true) parts |= PackParts.Dock;
+        if (PartCursors.IsChecked == true) parts |= PackParts.Cursors;
+        if (PartTrail.IsChecked == true) parts |= PackParts.Trail;
+        if (PartFolders.IsChecked == true) parts |= PackParts.Folders;
+        if (parts == PackParts.None) { PackStatus.Text = "Tick at least one thing to change."; return; }
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            var problems = _looks.ApplyPack(pack, parts, WallAdd.IsChecked == true, _docks);
+            PackStatus.Text = problems.Count == 0 ? $"{pack.Name} is on. Undo puts everything back." : string.Join(" ", problems);
+        }
+        catch (Exception ex) { App.Log(ex); PackStatus.Text = $"That didn't work: {ex.Message}"; }
+        finally { Mouse.OverrideCursor = null; }
+    }
+
+    private void OnUndoPack(object sender, RoutedEventArgs e)
+    {
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            var problems = _looks.UndoPack(_docks);
+            PackStatus.Text = problems.Count == 0 ? "Everything is back the way it was." : string.Join(" ", problems);
+        }
+        catch (Exception ex) { App.Log(ex); PackStatus.Text = $"That didn't work: {ex.Message}"; }
+        finally { Mouse.OverrideCursor = null; }
     }
 
     // ---------------------------------------------------------------- cursors

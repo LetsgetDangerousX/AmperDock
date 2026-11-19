@@ -508,6 +508,241 @@
       ],
       "room_start": 1.5,
       "room_end": 0
+    },
+    {
+      "id": "boo",
+      "name": "Boo",
+      "season": "Halloween",
+      "blurb": "Soft peach, with a friendly ghost peeking over one end.",
+      "preview": "previews/boo.png",
+      "look": {
+        "style": "gradient",
+        "color": "#FFDCC6",
+        "color2": "#FFC2A0",
+        "gradient_angle": 0,
+        "opacity": 94,
+        "outline": true,
+        "outline_color": "#E88A5E",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "pumpkin",
+        "theme": "boo",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/ghost.png",
+          "from": "end",
+          "offset": 0.85,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.62
+          ],
+          "size": 0.95,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/ind-twinkle.png",
+          "from": "start",
+          "offset": 0.5,
+          "edge": "top",
+          "dy": -0.2,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "size": 0.26,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "season": null,
+      "blurb": "Dark glass with a glowing pink edge, and a neon cat on top.",
+      "preview": "previews/neon.png",
+      "look": {
+        "style": "solid",
+        "color": "#1A0F33",
+        "opacity": 92,
+        "outline": true,
+        "outline_color": "#FF4FD8",
+        "outline_width": 2.5,
+        "roundness": 0.5,
+        "indicator": "dot",
+        "indicator_color": "#5BE7FF",
+        "theme": "neon",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/neoncat.png",
+          "from": "end",
+          "offset": 0.6,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.96
+          ],
+          "size": 0.72,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "season": null,
+      "blurb": "Warm wood, with a sleepy candle on the end.",
+      "preview": "previews/library.png",
+      "look": {
+        "style": "gradient",
+        "color": "#7A4A2E",
+        "color2": "#A8744A",
+        "gradient_angle": 0,
+        "opacity": 96,
+        "outline": true,
+        "outline_color": "#4A2A18",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "moon",
+        "theme": "library",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/candle.png",
+          "from": "end",
+          "offset": 0.5,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.96
+          ],
+          "size": 0.8,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
+    },
+    {
+      "id": "cloud",
+      "name": "Cloud",
+      "season": null,
+      "blurb": "A sky-blue dock edged with cloud puffs, and the cloud friend.",
+      "preview": "previews/cloud.png",
+      "look": {
+        "style": "gradient",
+        "color": "#EAF6FF",
+        "color2": "#FFFFFF",
+        "gradient_angle": 90,
+        "opacity": 94,
+        "outline": true,
+        "outline_color": "#A9C8EE",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "twinkle",
+        "theme": "cloud",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/cloudpuff.png",
+          "from": "start",
+          "offset": 1.1,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.74
+          ],
+          "size": 0.7,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/cloudpuff.png",
+          "from": "end",
+          "offset": 1.6,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.76
+          ],
+          "size": 0.6,
+          "behind": true,
+          "upright": true,
+          "mirror": true
+        },
+        {
+          "sprite": "decor/cloudpuff.png",
+          "from": "end",
+          "offset": 0.5,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.72
+          ],
+          "size": 0.75,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/cloudfriend.png",
+          "from": "start",
+          "offset": 0.05,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.45,
+            0.86
+          ],
+          "size": 0.8,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     }
   ]
 }

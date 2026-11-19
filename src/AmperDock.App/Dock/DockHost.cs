@@ -44,6 +44,12 @@ public sealed class DockHost : IDisposable
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
     private readonly Action _onTasks;
+
+    // widgets: live pictures redrawn when what they show changes
+    private readonly Widgets.State _widgets = new();
+    private readonly Dictionary<string, string> _widgetKeys = new();
+    private readonly DispatcherTimer _widgetTimer, _blinkTimer;
+    private int _widgetTicks;
     private readonly Action _onWallpaper;
     private readonly Dictionary<string, (string? target, ItemKeys keys)> _keys = new();
     private readonly FrameClock _clock;
@@ -110,6 +116,13 @@ public sealed class DockHost : IDisposable
         _placement = store.GetPlacement(containerId);
         _behavior = store.GetBehavior(containerId);
         _pointerLeftAt = Environment.TickCount64;
+        _widgetTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => WidgetTick(), Dispatcher.CurrentDispatcher);
+        _blinkTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(170), DispatcherPriority.Normal, (_, _) =>
+        {
+            _blinkTimer!.Stop();
+            _widgets.Blink = false;
+            RefreshWidgets();
+        }, Dispatcher.CurrentDispatcher);
         _hintTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(HintMs), DispatcherPriority.Background, (_, _) => HintExpired(), Dispatcher.CurrentDispatcher);
         _previewTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Normal, (_, _) => PreviewTick(), Dispatcher.CurrentDispatcher);
         _baseMetrics = theme.DockMetrics();
@@ -161,7 +174,7 @@ public sealed class DockHost : IDisposable
 
         _onTasks = RefreshTasks;
         TaskWatcher.Shared.Changed += _onTasks;
-        _onWallpaper = () => { if (_appearance.MatchWallpaper) ApplyWallpaperColours(); };
+        _onWallpaper = () => { if (FollowsWallpaper) ApplyWallpaperColours(); };
         Looks.WallpaperWatcher.Shared.Changed += _onWallpaper;
         ApplyWallpaperColours();
         RefreshTasks();
@@ -219,17 +232,20 @@ public sealed class DockHost : IDisposable
     }
 
     /// <summary>Theme colours plus the user's style, colours, opacity and outline choices.</summary>
-    /// <summary>The wallpaper's colours for this dock's monitor, when "Match my wallpaper" is on.</summary>
-    private WallpaperPalette? WallpaperColours =>
-        _appearance.MatchWallpaper ? Looks.WallpaperWatcher.Shared.PaletteFor(_work.W > 0 ? _work : new RectF(0, 0, 1, 1)) : null;
+    private bool FollowsWallpaper => _appearance.MatchWallpaper || _appearance.IconTint > 0;
 
-    /// <summary>Re-colour the dock (and tint the icons) after the wallpaper or the setting changed.</summary>
+    /// <summary>The wallpaper's colours for this dock's monitor, when the dock or its icons follow the wallpaper.</summary>
+    private WallpaperPalette? WallpaperColours =>
+        FollowsWallpaper ? Looks.WallpaperWatcher.Shared.PaletteFor(_work.W > 0 ? _work : new RectF(0, 0, 1, 1)) : null;
+
+    /// <summary>Re-colour the dock and/or tint the icons (each is its own choice) after the wallpaper or a setting changed.</summary>
     private void ApplyWallpaperColours()
     {
         if (_renderer is null) return;
         _style = ComposeStyle();
         var p = WallpaperColours;
-        _renderer.SetIconTint(p is null ? default : Argb.FromRgba(p.Tint), p is null ? 0 : _appearance.IconTint / 100f);
+        var tint = p is not null && _appearance.IconTint > 0;
+        _renderer.SetIconTint(tint ? Argb.FromRgba(p!.Tint) : default, tint ? _appearance.IconTint / 100f : 0);
         Render();
     }
 
@@ -237,7 +253,7 @@ public sealed class DockHost : IDisposable
     {
         var t = _theme.DockStyle();
         var a = _appearance;
-        if (WallpaperColours is { } wp)   // the wallpaper picks the colours; everything else stays the person's choice
+        if (_appearance.MatchWallpaper && WallpaperColours is { } wp)   // the wallpaper picks the dock's colours; the rest stays the person's choice
             a = a with { Color = wp.Fill, Color2 = wp.Fill2, OutlineColor = wp.Outline, IndicatorColor = wp.Indicator };
         var k = a.Opacity / 100f;
         var baseFill = a.Color is null ? t.Background : Argb.FromRgba(a.Color);
@@ -383,6 +399,9 @@ public sealed class DockHost : IDisposable
             LoadIcon(item, iconPx);
         }
         foreach (var gone in _size.Keys.Except(_items.Select(i => i.Id)).ToList()) _size.Remove(gone);
+        var hasWidgets = _items.Any(i => Widgets.KindOf(i) is not null);
+        if (hasWidgets && !_widgetTimer.IsEnabled) { _widgets.Sample(true, true); _widgetTimer.Start(); }
+        else if (!hasWidgets) _widgetTimer.Stop();
         RefreshTasks();
         Kick();
     }
@@ -427,8 +446,46 @@ public sealed class DockHost : IDisposable
 
     private void LoadIcon(DockItem item, int iconPx)
     {
+        if (Widgets.KindOf(item) is { } kind)
+        {
+            var w = Widgets.Render(kind, _widgets, Math.Max(iconPx, 128));
+            _renderer.SetIcon(item.Id, w.Width, w.Height, w.Bgra);
+            _widgetKeys[item.Id] = _widgets.Key(kind);
+            return;
+        }
         var px = ShellIcons.ForItem(item.IconPath, item.Target, Math.Max(iconPx, 128));
         if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
+    }
+
+    // ------------------------------------------------------------------ widgets
+
+    /// <summary>Once a second: refresh what widgets show (CPU every 2 s, the Recycle Bin every 4 s) and let Mochi blink now and then.</summary>
+    private void WidgetTick()
+    {
+        _widgetTicks++;
+        var kinds = _items.Select(Widgets.KindOf).Where(k => k is not null).ToHashSet();
+        _widgets.Sample(kinds.Contains("system") && _widgetTicks % 2 == 0, kinds.Contains("recyclebin") && _widgetTicks % 4 == 0);
+        if (kinds.Contains("mochi") && _widgets.Mochi == Widgets.Mood.Awake && !_widgets.Blink && Random.Shared.NextDouble() < 0.14)
+        {
+            _widgets.Blink = true;
+            _blinkTimer.Start();
+        }
+        RefreshWidgets();
+    }
+
+    /// <summary>Redraw the widgets whose picture changed, and the dock if any did.</summary>
+    private void RefreshWidgets()
+    {
+        var changed = false;
+        var px = IconPixelSize;
+        foreach (var item in _items)
+        {
+            if (Widgets.KindOf(item) is not { } kind) continue;
+            if (_widgetKeys.TryGetValue(item.Id, out var key) && key == _widgets.Key(kind)) continue;
+            LoadIcon(item, px);
+            changed = true;
+        }
+        if (changed && !_animating) Render();
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -774,7 +831,8 @@ public sealed class DockHost : IDisposable
             if (hit >= 0 && order[hit].Id != _preview?.ItemId)
             {
                 var item = order[hit];
-                var text = _running.TryGetValue(item.Id, out var w) && w.Count > 1 ? $"{item.Label} · {w.Count} windows" : item.Label;
+                var text = Widgets.KindOf(item) is { } widget ? _widgets.Label(widget, item.Label)
+                    : _running.TryGetValue(item.Id, out var w) && w.Count > 1 ? $"{item.Label} · {w.Count} windows" : item.Label;
                 label = LabelAt(text, rects[hit].CenterX, rects[hit].Y - 10 * _scale);
             }
         }
@@ -1157,6 +1215,13 @@ public sealed class DockHost : IDisposable
 
     private void LaunchOrActivate(DockItem item, bool forceNew)
     {
+        if (Widgets.KindOf(item) is { } kind)
+        {
+            if (Widgets.Click(kind, _widgets) is { } message) Toast(message);
+            _widgets.Sample(false, false);
+            RefreshWidgets();
+            return;
+        }
         forceNew |= item.AllowMultiple;
         if (!forceNew && _running.TryGetValue(item.Id, out var windows) && windows.Count > 0)
         {
@@ -1166,6 +1231,12 @@ public sealed class DockHost : IDisposable
         }
         var error = Tasks.Launch(item, forceNew);
         if (error is not null) Toast(error);
+        else if (_widgetTimer.IsEnabled)
+        {
+            _widgets.HappyUntil = Environment.TickCount64 + 3000;
+            _widgets.Sample(false, false);
+            RefreshWidgets();
+        }
     }
 
     private void OnDropFiles(nint hDrop)
@@ -1198,10 +1269,11 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14, NewShelf = 15;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14, NewShelf = 15, EmptyBin = 16, WidgetBase = 40;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         if (hit >= 0)
         {
+            if (Widgets.KindOf(_items[hit]) == "recyclebin") AppendMenu(menu, MF_STRING, EmptyBin, "Empty Recycle &Bin…");
             AppendMenu(menu, MF_STRING, Edit, "&Edit name, location and icon…");
             AppendMenu(menu, MF_STRING, OpenLocation, "&Open file location");
             AppendMenu(menu, MF_STRING, Remove, IsShelf && _behavior.HiddenOnDesktop.Contains(_items[hit].Target ?? "", StringComparer.OrdinalIgnoreCase)
@@ -1211,6 +1283,9 @@ public sealed class DockHost : IDisposable
         AppendMenu(menu, MF_STRING, AddApp, "&Add an app…");
         AppendMenu(menu, MF_STRING, AddFile, "Add a f&ile…");
         AppendMenu(menu, MF_STRING, AddFolder, "Add a &folder…");
+        var widgetMenu = CreatePopupMenu();
+        for (var i = 0; i < Widgets.All.Length; i++) AppendMenu(widgetMenu, MF_STRING, WidgetBase + i, Widgets.All[i].Name);
+        AppendMenu(menu, MF_POPUP, widgetMenu, "Add a &widget");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
 
         uint Check(DockEdge e) => MF_STRING | (_placement.Edge == e ? MF_CHECKED : 0);
@@ -1294,6 +1369,14 @@ public sealed class DockHost : IDisposable
                 break;
             case NewShelf:
                 _commands.NewShelf(this);
+                break;
+            case EmptyBin:
+                Widgets.EmptyBin(_hwnd);
+                _widgets.Sample(false, true);
+                RefreshWidgets();
+                break;
+            case >= WidgetBase when cmd < WidgetBase + Widgets.All.Length:
+                AddItems([Widgets.New(Widgets.All[cmd - WidgetBase].Kind)], hit >= 0 ? hit + 1 : _items.Count);
                 break;
             case RemoveDock when !IsMain:
                 _commands.RemoveDock(this);
@@ -1410,6 +1493,8 @@ public sealed class DockHost : IDisposable
         Looks.WallpaperWatcher.Shared.Changed -= _onWallpaper;
         _previewTimer.Stop();
         _hintTimer.Stop();
+        _widgetTimer.Stop();
+        _blinkTimer.Stop();
         _preview?.Close();
         _clock.Dispose();
         s_hosts.Remove(_hwnd);

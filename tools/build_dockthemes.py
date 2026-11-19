@@ -45,7 +45,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "src" / "AmperDock.App" / "DockThemes"
 
 DECOR = ["dock-shrooms", "dock-holly", "dock-pumpkin", "dock-bat", "dock-acorn", "dock-sakura",
-         "planet-ball", "planet-earthy", "planet-sunny", "moon-face", "ind-twinkle"]
+         "planet-ball", "planet-earthy", "planet-sunny", "moon-face", "ind-twinkle",
+         "dock-ghost", "dock-neoncat", "dock-candle", "dock-cloudpuff", "dock-cloudfriend"]
 # toned copies: the same art pulled toward a dock's colours, so it reads as part of that dock
 TONED = {
     "planet-moon.dusk": ("planet-moon", "saturate(.75) hue-rotate(-18deg) brightness(.82) contrast(.95)"),
@@ -116,6 +117,27 @@ THEMES = [
          ears=False, snow=False, room_start=1.5,
          attach=[A("cup", "start", 0.75, 0.62, "planet-earthy")],
          decor=[D("planet-sunny", "end", 0.75, "top", [0.5, 0.68], 0.9, behind=True)]),
+    # theme-pack docks
+    dict(id="boo", name="Boo", season="Halloween", blurb="Soft peach, with a friendly ghost peeking over one end.",
+         look=dict(style="gradient", color="#FFDCC6", color2="#FFC2A0", gradient_angle=0, opacity=94, outline=True,
+                   outline_color="#E88A5E", outline_width=1.5, roundness=0.5, indicator="pumpkin"),
+         ears=False, snow=False, decor=[D("dock-ghost", "end", 0.85, "top", [0.5, 0.62], 0.95, behind=True),
+                                        D("ind-twinkle", "start", 0.5, "top", [0.5, 0.5], 0.26, dy=-0.2)]),
+    dict(id="neon", name="Neon", season=None, blurb="Dark glass with a glowing pink edge, and a neon cat on top.",
+         look=dict(style="solid", color="#1A0F33", opacity=92, outline=True, outline_color="#FF4FD8", outline_width=2.5,
+                   roundness=0.5, indicator="dot", indicator_color="#5BE7FF"),
+         ears=False, snow=False, decor=[D("dock-neoncat", "end", 0.6, "top", [0.5, 0.96], 0.72)]),
+    dict(id="library", name="Library", season=None, blurb="Warm wood, with a sleepy candle on the end.",
+         look=dict(style="gradient", color="#7A4A2E", color2="#A8744A", gradient_angle=0, opacity=96, outline=True,
+                   outline_color="#4A2A18", outline_width=1.5, roundness=0.5, indicator="moon"),
+         ears=False, snow=False, decor=[D("dock-candle", "end", 0.5, "top", [0.5, 0.96], 0.8)]),
+    dict(id="cloud", name="Cloud", season=None, blurb="A sky-blue dock edged with cloud puffs, and the cloud friend.",
+         look=dict(style="gradient", color="#EAF6FF", color2="#FFFFFF", gradient_angle=90, opacity=94, outline=True,
+                   outline_color="#A9C8EE", outline_width=1.5, roundness=0.5, indicator="twinkle"),
+         ears=False, snow=False, decor=[D("dock-cloudpuff", "start", 1.1, "top", [0.5, 0.74], 0.7, behind=True),
+                                        D("dock-cloudpuff", "end", 1.6, "top", [0.5, 0.76], 0.6, behind=True, mirror=True),
+                                        D("dock-cloudpuff", "end", 0.5, "top", [0.5, 0.72], 0.75, behind=True),
+                                        D("dock-cloudfriend", "start", 0.05, "top", [0.45, 0.86], 0.8)]),
 ]
 
 
