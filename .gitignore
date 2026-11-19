@@ -1,2 +1,8 @@
 replica/screens/*
 !replica/screens/.gitkeep
+bin/
+obj/
+*.user
+.vs/
+# screenshots of the running clone can include the user's desktop; keep them local
+replica/clone-screens/

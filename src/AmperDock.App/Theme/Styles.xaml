@@ -1,0 +1,174 @@
+<!-- AmperDock primitives. Colours come only from Tokens.*.xaml (DynamicResource so light/dark swaps live). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/Theme/Tokens.Shared.xaml"/>
+  </ResourceDictionary.MergedDictionaries>
+
+  <!-- ===== Text ===== -->
+  <Style x:Key="Text.Base" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Sans}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <Style x:Key="Text.Display" TargetType="TextBlock" BasedOn="{StaticResource Text.Base}">
+    <Setter Property="FontSize" Value="{StaticResource Type.Display.Size}"/>
+    <Setter Property="LineHeight" Value="{StaticResource Type.Display.Line}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.Display.Weight}"/>
+  </Style>
+  <Style x:Key="Text.Title" TargetType="TextBlock" BasedOn="{StaticResource Text.Base}">
+    <Setter Property="FontSize" Value="{StaticResource Type.Title.Size}"/>
+    <Setter Property="LineHeight" Value="{StaticResource Type.Title.Line}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.Title.Weight}"/>
+  </Style>
+  <Style x:Key="Text.Subtitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Base}">
+    <Setter Property="FontSize" Value="{StaticResource Type.Subtitle.Size}"/>
+    <Setter Property="LineHeight" Value="{StaticResource Type.Subtitle.Line}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.Subtitle.Weight}"/>
+  </Style>
+  <Style x:Key="Text.Body" TargetType="TextBlock" BasedOn="{StaticResource Text.Base}">
+    <Setter Property="FontSize" Value="{StaticResource Type.Body.Size}"/>
+    <Setter Property="LineHeight" Value="{StaticResource Type.Body.Line}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.Body.Weight}"/>
+  </Style>
+  <Style x:Key="Text.BodyStrong" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+    <Setter Property="FontWeight" Value="{StaticResource Type.BodyStrong.Weight}"/>
+  </Style>
+  <Style x:Key="Text.Muted" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/>
+  </Style>
+  <Style x:Key="Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.Base}">
+    <Setter Property="FontSize" Value="{StaticResource Type.Caption.Size}"/>
+    <Setter Property="LineHeight" Value="{StaticResource Type.Caption.Line}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.Caption.Weight}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/>
+  </Style>
+
+  <!-- ===== Focus ring: 2px focus-ring colour, 2px offset ===== -->
+  <Style x:Key="FocusRing">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Border Margin="-4" CornerRadius="12" BorderThickness="2" BorderBrush="{DynamicResource Brush.FocusRing}"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Buttons: primary, secondary, ghost, danger. Sizes via Tag-free padding; md = 32px ===== -->
+  <Style x:Key="Btn.Base" TargetType="Button">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Sans}"/>
+    <Setter Property="FontSize" Value="{StaticResource Type.Body.Size}"/>
+    <Setter Property="FontWeight" Value="{StaticResource Type.BodyStrong.Weight}"/>
+    <Setter Property="MinHeight" Value="32"/>
+    <Setter Property="MinWidth" Value="64"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" CornerRadius="{StaticResource Radius.Md}" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}" RenderTransformOrigin=".5,.5">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bd" Property="RenderTransform">
+                <Setter.Value><ScaleTransform ScaleX=".98" ScaleY=".98"/></Setter.Value>
+              </Setter>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Bd" Property="Opacity" Value=".5"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="Btn.Secondary" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="Btn.Primary" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.OnAccent}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="Btn.Ghost" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentText}"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentSoft}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="Btn.Danger" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="{DynamicResource Brush.Danger}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Brush.SurfaceRaised}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style TargetType="Button" BasedOn="{StaticResource Btn.Secondary}"/>
+
+  <!-- ===== Cards and chips ===== -->
+  <Style x:Key="Card" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Lg}"/>
+    <Setter Property="Padding" Value="20"/>
+  </Style>
+  <Style x:Key="Chip" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSoft}"/>
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Sm}"/>
+    <Setter Property="Padding" Value="8,2"/>
+    <Setter Property="Margin" Value="0,0,4,0"/>
+  </Style>
+
+  <!-- ===== Mochi, the mascot (same art as replica/design/assets/mascot-mochi.svg) ===== -->
+  <DrawingImage x:Key="Img.Mochi">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="White" Geometry="M12 26 9 8.5c-.3-1.6 1.4-2.7 2.7-1.8L25 15.5M52 26l3-17.5c.3-1.6-1.4-2.7-2.7-1.8L39 15.5">
+          <GeometryDrawing.Pen><Pen Brush="#2A1F3D" Thickness="2.4" LineJoin="Round"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#F4A6C8" Geometry="M13.4 12.2 15 21l5.6-4.5zM50.6 12.2 49 21l-5.6-4.5z"/>
+        <GeometryDrawing Brush="White">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="32,37" RadiusX="24" RadiusY="20"/></GeometryDrawing.Geometry>
+          <GeometryDrawing.Pen><Pen Brush="#2A1F3D" Thickness="2.4"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M19.5 36.5q3.5-4 7 0M37.5 36.5q3.5-4 7 0">
+          <GeometryDrawing.Pen><Pen Brush="#2A1F3D" Thickness="2.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#CCF4A6C8">
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <EllipseGeometry Center="17,42.5" RadiusX="4" RadiusY="2.4"/>
+              <EllipseGeometry Center="47,42.5" RadiusX="4" RadiusY="2.4"/>
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M28.5 42.5q1.75 2.2 3.5 0q1.75 2.2 3.5 0">
+          <GeometryDrawing.Pen><Pen Brush="#2A1F3D" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#7444D6" Geometry="M30.6 40.2h2.8L32 41.6z"/>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+</ResourceDictionary>

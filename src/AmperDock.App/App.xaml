@@ -1,0 +1,15 @@
+<Application x:Class="AmperDock.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ThemeMode="Light"
+             ShutdownMode="OnExplicitShutdown">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- ThemeManager inserts Tokens.Light/Dark.xaml at index 0 at startup -->
+        <ResourceDictionary Source="/Theme/Tokens.Shared.xaml"/>
+        <ResourceDictionary Source="/Theme/Styles.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>
