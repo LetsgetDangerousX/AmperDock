@@ -92,6 +92,12 @@ public sealed class DockHost : IDisposable
     private string? _toast;
     private long _toastUntil;
 
+    // the empty dock's "Drop apps here" hint: shown for a few seconds, then it gets out of the way
+    private long _hintUntil;
+    private bool _wasEmpty;
+    private readonly DispatcherTimer _hintTimer;
+    private const int HintMs = 6000;
+
     public DockHost(SettingsStore store, ThemeManager theme, string containerId, DockCommands commands)
     {
         _store = store;
@@ -102,6 +108,7 @@ public sealed class DockHost : IDisposable
         _placement = store.GetPlacement(containerId);
         _behavior = store.GetBehavior(containerId);
         _pointerLeftAt = Environment.TickCount64;
+        _hintTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(HintMs), DispatcherPriority.Background, (_, _) => HintExpired(), Dispatcher.CurrentDispatcher);
         _previewTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Normal, (_, _) => PreviewTick(), Dispatcher.CurrentDispatcher);
         _baseMetrics = theme.DockMetrics();
         _m = _baseMetrics;
@@ -331,6 +338,9 @@ public sealed class DockHost : IDisposable
     private void Reload()
     {
         _items = _store.GetItems(_containerId).ToList();
+        var empty = _items.Count == 0;
+        if (empty && !_wasEmpty) ShowHint();   // at start-up, or the last item was just removed
+        _wasEmpty = empty;
         var iconPx = IconPixelSize;
         foreach (var item in _items)
         {
@@ -359,10 +369,12 @@ public sealed class DockHost : IDisposable
         var fg = watcher.Foreground;
         var changed = fg != _foreground || running.Count != _running.Count
                       || running.Any(kv => !_running.TryGetValue(kv.Key, out var old) || !old.SequenceEqual(kv.Value));
+        var clickedAway = _foreground != 0 && fg != _foreground;   // not the very first look at the front window
         _running = running;
         _foreground = fg;
         if (changed)
         {
+            if (clickedAway && _hintUntil > 0 && _pointerX is null) HintExpired();
             RefreshPreview();
             Render();
         }
@@ -633,7 +645,7 @@ public sealed class DockHost : IDisposable
         var gap = 8 * _scale;
         if (_toast is not null && Environment.TickCount64 < _toastUntil)
             label = LabelAt(_toast, center, bg.Y - gap);
-        else if (order.Count == 0 && !_dragging)
+        else if (order.Count == 0 && !_dragging && HintVisible)
             label = LabelAt(_frame.Vertical ? "Drop apps here" : "Drop apps here and they'll stay put.", center, bg.Y - gap);
         else if (!_dragging && !_movingDock && _pointerX is float hx && _pointerY is float hy)
         {
@@ -711,19 +723,49 @@ public sealed class DockHost : IDisposable
             var strip = MathF.Max(2, MathF.Round(2 * _scale));   // touch the edge here to bring the dock back
             r = new RectF(e.X, t - strip, e.W, strip);
         }
-        else if (_items.Count == 0 && _frame.Vertical)   // keep the empty-dock hint visible: beside a side dock...
-            r = new RectF(bg.X - 2, 0, bg.W + 4, t);
-        else if (_items.Count == 0)                        // ...above a horizontal one
-            r = new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale);
         else
         {
-            var e = _lastExtent.W > 0 ? _lastExtent : bg;   // band plus decorations
+            var e = _lastExtent.W > 0 ? _lastExtent : bg;   // band plus decorations (a leaf's tips, ears, pictures)
             r = new RectF(e.X - 2, e.Y - 2, e.W + 4, t - e.Y + 2);
+            // an empty dock also keeps its "Drop apps here" hint visible: beside a side dock, above a horizontal one
+            if (_items.Count == 0 && HintVisible && _frame.Vertical)
+                r = Union(r, new RectF(bg.X - 2, 0, bg.W + 4, t));
+            else if (_items.Count == 0 && HintVisible)
+                r = Union(r, new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale));
         }
         var win = _frame.ToWindow(r);
         var rgn = expanded ? CreateRectRgn(0, 0, w, h)
             : CreateRectRgn((int)MathF.Floor(win.X), (int)MathF.Floor(win.Y), (int)MathF.Ceiling(win.Right), (int)MathF.Ceiling(win.Bottom));
         SetWindowRgn(_hwnd, rgn, true);   // the system owns rgn now
+    }
+
+    // ------------------------------------------------------------------ empty-dock hint
+
+    /// <summary>While the hint is up: its few seconds haven't run out, or the pointer is resting on the empty dock.</summary>
+    private bool HintVisible => _items.Count == 0 && (Environment.TickCount64 < _hintUntil || _pointerX is not null);
+
+    private void ShowHint()
+    {
+        _hintUntil = Environment.TickCount64 + HintMs;
+        _hintTimer.Stop();
+        _hintTimer.Interval = TimeSpan.FromMilliseconds(HintMs);
+        _hintTimer.Start();
+    }
+
+    /// <summary>Time's up, or the user clicked into another window: hide the hint and give the space back.</summary>
+    private void HintExpired()
+    {
+        _hintTimer.Stop();
+        _hintUntil = 0;
+        if (_items.Count > 0 || _renderer is null) return;
+        Render();
+        if (!_expanded) SetExpanded(false, force: true);
+    }
+
+    private static RectF Union(RectF a, RectF b)
+    {
+        float x = MathF.Min(a.X, b.X), y = MathF.Min(a.Y, b.Y);
+        return new RectF(x, y, MathF.Max(a.Right, b.Right) - x, MathF.Max(a.Bottom, b.Bottom) - y);
     }
 
     private void Toast(string text)
@@ -799,6 +841,13 @@ public sealed class DockHost : IDisposable
                 {
                     _pointerX = _pointerY = null;
                     _pointerLeftAt = Environment.TickCount64;
+                    if (_items.Count == 0)
+                    {
+                        _hintUntil = Math.Max(_hintUntil, Environment.TickCount64 + 2500);
+                        _hintTimer.Stop();
+                        _hintTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(1, _hintUntil - Environment.TickCount64));
+                        _hintTimer.Start();
+                    }
                     TrackHover();
                     Kick();
                 }
@@ -1177,6 +1226,7 @@ public sealed class DockHost : IDisposable
     {
         TaskWatcher.Shared.Changed -= _onTasks;
         _previewTimer.Stop();
+        _hintTimer.Stop();
         _preview?.Close();
         _clock.Dispose();
         s_hosts.Remove(_hwnd);
