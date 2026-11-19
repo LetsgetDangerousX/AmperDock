@@ -69,6 +69,24 @@ internal static partial class Win32
     [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW")] public static partial nint GetModuleHandle(nint name);
     [LibraryImport("user32.dll", EntryPoint = "LoadCursorW")] public static partial nint LoadCursor(nint inst, nint id);
 
+    // ---- monitors, cursors, keyboard, submenus (dock moving)
+    public const uint WM_SETCURSOR = 0x20, MF_POPUP = 0x10, MF_CHECKED = 0x8, MONITOR_DEFAULTTONEAREST = 2;
+    public const int VK_MENU = 0x12, IDC_ARROW = 32512, IDC_SIZEALL = 32646;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFOEX
+    {
+        public uint cbSize; public RECT rcMonitor, rcWork; public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szDevice;
+    }
+    public delegate bool MonitorEnumProc(nint mon, nint hdc, nint rect, nint data);
+    [DllImport("user32.dll")] public static extern bool EnumDisplayMonitors(nint hdc, nint clip, MonitorEnumProc cb, nint data);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMonitorInfoW")] public static extern bool GetMonitorInfoEx(nint mon, ref MONITORINFOEX mi);
+    [LibraryImport("user32.dll")] public static partial nint MonitorFromPoint(POINT pt, uint flags);
+    [LibraryImport("shcore.dll")] public static partial int GetDpiForMonitor(nint mon, int type, out uint dpiX, out uint dpiY);
+    [LibraryImport("user32.dll")] public static partial nint SetCursor(nint cursor);
+    [LibraryImport("user32.dll")] public static partial short GetKeyState(int vk);
+
     public static int LoWord(nint v) => unchecked((short)((long)v & 0xFFFF));
     public static int HiWord(nint v) => unchecked((short)(((long)v >> 16) & 0xFFFF));
 }

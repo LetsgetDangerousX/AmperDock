@@ -76,6 +76,28 @@ public sealed class SettingsStore : IDisposable
         Exec("UPDATE containers SET appearance_json = $j WHERE id = $id", null,
             ("$j", appearance.Normalised().ToJson()), ("$id", containerId));
 
+    // ---------------------------------------------------------------- placement
+
+    public DockPlacement GetPlacement(string containerId)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT edge, monitor_key, alignment, float_x, float_y FROM containers WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", containerId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return new DockPlacement();
+        return new DockPlacement(
+            DockPlacement.FromDb(r.IsDBNull(0) ? null : r.GetString(0)),
+            r.IsDBNull(1) ? null : r.GetString(1),
+            r.IsDBNull(2) ? 0.5f : (float)r.GetDouble(2),
+            r.IsDBNull(3) ? 0 : r.GetInt32(3),
+            r.IsDBNull(4) ? 0 : r.GetInt32(4));
+    }
+
+    public void SetPlacement(string containerId, DockPlacement p) => Exec("""
+        UPDATE containers SET edge = $e, monitor_key = $m, alignment = $a, float_x = $fx, float_y = $fy WHERE id = $id
+        """, null, ("$e", DockPlacement.ToDb(p.Edge)), ("$m", (object?)p.MonitorKey ?? DBNull.Value),
+        ("$a", (double)Math.Clamp(p.Alignment, 0, 1)), ("$fx", p.FloatX), ("$fy", p.FloatY), ("$id", containerId));
+
     // ---------------------------------------------------------------- items
 
     public IReadOnlyList<DockItem> GetItems(string containerId)

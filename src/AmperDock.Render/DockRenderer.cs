@@ -48,7 +48,11 @@ public sealed record DockStyle(Argb Background, Argb Outline, Argb Highlight, Ar
 
 public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing);
 public readonly record struct IndicatorDraw(float CenterX, float CenterY, float Size, bool Focused);
-public sealed record LabelDraw(string Text, float CenterX, float Bottom);
+/// <summary>Which side of the anchor point the label pill sits on.</summary>
+public enum LabelSide { Above, Below, Right, Left }
+
+/// <summary>A label pill. (X, Y) is the point it attaches to; Side says where the pill goes from there.</summary>
+public sealed record LabelDraw(string Text, float X, float Y, LabelSide Side = LabelSide.Above);
 
 /// <summary>Everything one frame needs. Built by the app from DockLayout each frame.</summary>
 public sealed record DockScene(RectF Background, float Radius, IReadOnlyList<IconDraw> Icons,
@@ -290,8 +294,15 @@ public sealed class DockRenderer : IDisposable
         float padX = 10 * scale, padY = 4 * scale;
         var w = m.Width + padX * 2;
         var h = m.Height + padY * 2;
-        var x = Math.Clamp(label.CenterX - w / 2, 2, _width - w - 2);
-        var y = label.Bottom - h;
+        var (x, y) = label.Side switch
+        {
+            LabelSide.Below => (label.X - w / 2, label.Y),
+            LabelSide.Right => (label.X, label.Y - h / 2),
+            LabelSide.Left => (label.X - w, label.Y - h / 2),
+            _ => (label.X - w / 2, label.Y - h),
+        };
+        x = Math.Clamp(x, 2, Math.Max(2, _width - w - 2));
+        y = Math.Clamp(y, 2, Math.Max(2, _height - h - 2));
         using var bg = ctx.CreateSolidColorBrush(style.LabelBg.ToColor4());
         using var fg = ctx.CreateSolidColorBrush(style.LabelText.ToColor4());
         ctx.FillRoundedRectangle(new RoundedRectangle(new RectangleF(x, y, w, h), h / 2, h / 2), bg);

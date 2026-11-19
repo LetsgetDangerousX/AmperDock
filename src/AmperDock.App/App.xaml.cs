@@ -38,7 +38,7 @@ public partial class App : Application
         SeedOnFirstRun(_store);
 
         if (e.Args.Contains("--gallery")) OpenGallery();
-        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenGallery, OpenAppearance);
+        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenAppearance);
         if (e.Args.Contains("--appearance")) OpenAppearance(_dock);
     }
 

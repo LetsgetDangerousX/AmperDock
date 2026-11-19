@@ -89,6 +89,74 @@ public sealed class StoreTests : IDisposable
     }
 }
 
+public class PlacementTests
+{
+    private static readonly RectF Work = new(0, 0, 1920, 1040);
+
+    [Theory]
+    [InlineData(960, 1030, DockEdge.Bottom)]
+    [InlineData(960, 10, DockEdge.Top)]
+    [InlineData(5, 500, DockEdge.Left)]
+    [InlineData(1915, 500, DockEdge.Right)]
+    [InlineData(960, 500, DockEdge.Float)]
+    public void Snaps_to_the_nearest_edge_or_floats(int x, int y, DockEdge expected)
+        => Assert.Equal(expected, DockPlacement.Snap(x, y, Work, 96, null).Edge);
+
+    [Fact]
+    public void Snap_alignment_follows_the_drop_point()
+    {
+        Assert.Equal(0.25f, DockPlacement.Snap(480, 1035, Work, 96, null).Alignment, 3);
+        Assert.Equal(0.5f, DockPlacement.Snap(3, 520, Work, 96, null).Alignment, 3);
+        var f = DockPlacement.Snap(700, 400, Work, 96, "\\\\.\\DISPLAY2");
+        Assert.Equal((700, 400, "\\\\.\\DISPLAY2"), (f.FloatX, f.FloatY, f.MonitorKey));
+    }
+
+    [Theory]
+    [InlineData(DockEdge.Bottom)]
+    [InlineData(DockEdge.Top)]
+    [InlineData(DockEdge.Left)]
+    [InlineData(DockEdge.Right)]
+    public void Frame_mapping_round_trips_and_keeps_the_edge_side(DockEdge edge)
+    {
+        var f = new DockFrame(edge, 1000, 150);
+        var (wx, wy) = f.ToWindow(300, 140);
+        Assert.Equal((300f, 140f), f.ToDock(wx, wy));
+        // the band (near y = Thickness in dock space) must end up against the matching window edge
+        var band = f.ToWindow(new RectF(100, 100, 50, 50));
+        var (w, h) = f.WindowSize;
+        switch (edge)
+        {
+            case DockEdge.Bottom: Assert.Equal(h, band.Bottom, 3); break;
+            case DockEdge.Top: Assert.Equal(0, band.Y, 3); break;
+            case DockEdge.Left: Assert.Equal(0, band.X, 3); break;
+            case DockEdge.Right: Assert.Equal(w, band.Right, 3); break;
+        }
+    }
+
+    [Fact]
+    public void Placement_persists()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"amperdock-test-{Guid.NewGuid()}.db");
+        try
+        {
+            using (var s = new SettingsStore(path))
+            {
+                Assert.Equal(DockEdge.Bottom, s.GetPlacement(SettingsStore.MainDockId).Edge);
+                s.SetPlacement(SettingsStore.MainDockId, new DockPlacement(DockEdge.Left, "\\\\.\\DISPLAY2", 0.3f));
+            }
+            using var again = new SettingsStore(path);
+            var p = again.GetPlacement(SettingsStore.MainDockId);
+            Assert.Equal((DockEdge.Left, "\\\\.\\DISPLAY2"), (p.Edge, p.MonitorKey));
+            Assert.Equal(0.3f, p.Alignment, 3);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            foreach (var f in new[] { path, path + "-wal", path + "-shm" }) try { File.Delete(f); } catch (IOException) { }
+        }
+    }
+}
+
 public class LayoutTests
 {
     private static readonly DockMetrics M = new();
