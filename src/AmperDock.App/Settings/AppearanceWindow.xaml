@@ -32,6 +32,13 @@
           <TextBlock Style="{StaticResource Text.Title}" Text="Dock appearance"/>
           <TextBlock Style="{StaticResource Text.Muted}" Margin="0,2,0,0" Text="Changes show on your dock right away. Save keeps them."/>
 
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,4" Text="Themes"/>
+          <TextBlock Style="{StaticResource Text.Caption}" Margin="0,0,0,10" TextWrapping="Wrap"
+                     Text="A starting point. Pick one, then change anything below to make it yours."/>
+          <WrapPanel x:Name="ThemeCards"/>
+          <CheckBox x:Name="DecorationsBox" Margin="0,6,0,0" Content="Show the theme's decorations (ears, snow, little pictures)"
+                    Checked="OnChanged" Unchecked="OnChanged"/>
+
           <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Style"/>
           <UniformGrid x:Name="StyleCards" Rows="1" Columns="4"/>
 
@@ -54,6 +61,13 @@
             </DockPanel>
           </StackPanel>
 
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Shape"/>
+          <UniformGrid Rows="1" Columns="4" x:Name="BandShapes">
+            <RadioButton GroupName="band" Content="Rounded" Tag="rounded" Checked="OnBandShape"/>
+            <RadioButton GroupName="band" Content="Leaf" Tag="leaf" Checked="OnBandShape"/>
+          </UniformGrid>
+
+          <StackPanel x:Name="CornersPanel">
           <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Corners"/>
           <UniformGrid Rows="1" Columns="4" x:Name="ShapePresets">
             <RadioButton GroupName="shape" Content="Sharp" Tag="0" Checked="OnShapePreset"/>
@@ -67,6 +81,11 @@
             <Slider x:Name="Roundness" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" ValueChanged="OnChanged"
                     AutomationProperties.Name="Corner roundness"/>
           </DockPanel>
+          </StackPanel>
+
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Running indicator"/>
+          <TextBlock Style="{StaticResource Text.Caption}" Margin="0,0,0,8" Text="The little mark under apps that are open."/>
+          <WrapPanel x:Name="IndicatorCards"/>
 
           <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Opacity"/>
           <DockPanel>

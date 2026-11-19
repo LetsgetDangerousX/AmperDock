@@ -6,3 +6,4 @@ obj/
 .vs/
 # screenshots of the running clone can include the user's desktop; keep them local
 replica/clone-screens/
+__pycache__/

@@ -17,7 +17,7 @@ namespace AmperDock.App.Settings;
 /// </summary>
 public partial class AppearanceWindow : Window
 {
-    private enum Slot { Fill, GradientEnd, Outline }
+    private enum Slot { Fill, GradientEnd, Outline, Indicator }
 
     /// <summary>Starter palette, chosen to sit well with the lilac/plum brand.</summary>
     private static readonly string[] PaletteHex =
@@ -51,6 +51,8 @@ public partial class AppearanceWindow : Window
         InitializeComponent();
 
         BuildStyleCards();
+        BuildThemeCards();
+        BuildIndicatorCards();
         foreach (var hex in PaletteHex) PaletteSwatches.Children.Add(ColorPicker.Swatch(hex, () => SetSlot(_slot, hex)));
         Picker.SetRecent(LoadRecent());
         Picker.ColorChanged += c => { if (!_loading) SetSlot(_slot, ColorPicker.Hex(c)); };
@@ -72,6 +74,7 @@ public partial class AppearanceWindow : Window
         Outline.IsChecked = a.Outline;
         OutlineWidth.Value = a.OutlineWidth;
         Angle.Value = a.GradientAngle;
+        DecorationsBox.IsChecked = a.Decorations;
         _current = a;
         SyncAll();
         _loading = false;
@@ -84,6 +87,7 @@ public partial class AppearanceWindow : Window
         Outline = Outline.IsChecked == true,
         OutlineWidth = (float)OutlineWidth.Value,
         GradientAngle = (float)Angle.Value,
+        Decorations = DecorationsBox.IsChecked == true,
     };
 
     private void Apply(DockAppearance a)
@@ -104,6 +108,13 @@ public partial class AppearanceWindow : Window
         if (_slot == Slot.Fill && a.Style == DockStyles.Outline) _slot = Slot.Outline;
 
         foreach (Border card in StyleCards.Children) Select(card, (string)card.Tag == a.Style);
+        foreach (var card in ThemeCards.Children.OfType<Border>()) Select(card, (string)card.Tag == a.Theme);
+        foreach (Border card in IndicatorCards.Children) Select(card, (string)card.Tag == a.Indicator);
+        foreach (RadioButton rb in BandShapes.Children) rb.IsChecked = (string)rb.Tag == a.Shape;
+        CornersPanel.Visibility = a.Shape == DockShapes.Rounded ? Visibility.Visible : Visibility.Collapsed;
+        var theme = DockThemeCatalog.Shared.Find(a.Theme);
+        DecorationsBox.Visibility = theme is { } t && (t.Ears || t.Snow || t.Decor.Count > 0) ? Visibility.Visible : Visibility.Collapsed;
+        if (_slot == Slot.Indicator && !DockIndicators.Drawn.Contains(a.Indicator)) _slot = Slot.Fill;
         foreach (RadioButton rb in ShapePresets.Children)
             rb.IsChecked = MathF.Abs(float.Parse((string)rb.Tag, CultureInfo.InvariantCulture) - a.Roundness) < 0.005f;
         BuildSlots();
@@ -128,6 +139,7 @@ public partial class AppearanceWindow : Window
     {
         Slot.Fill => _current.Color,
         Slot.GradientEnd => _current.Color2,
+        Slot.Indicator => _current.IndicatorColor,
         _ => _current.OutlineColor,
     };
 
@@ -135,6 +147,7 @@ public partial class AppearanceWindow : Window
     {
         Slot.Fill => "Fill colour",
         Slot.GradientEnd => "Gradient end colour",
+        Slot.Indicator => "Indicator colour",
         _ => "Outline colour",
     };
 
@@ -145,6 +158,7 @@ public partial class AppearanceWindow : Window
         return s switch
         {
             Slot.Outline => dark ? "#3C3052" : "#E2D6F5",
+            Slot.Indicator => dark ? "#B497FF" : "#7444D6",
             Slot.GradientEnd => _current.Color ?? (dark ? "#3A2C52" : "#FFFFFF"),
             _ => dark ? "#221A2E" : "#F6F0FF",
         };
@@ -160,6 +174,7 @@ public partial class AppearanceWindow : Window
         {
             Slot.Fill => ReadSliders() with { Color = hex },
             Slot.GradientEnd => ReadSliders() with { Color2 = hex },
+            Slot.Indicator => ReadSliders() with { IndicatorColor = hex },
             _ => ReadSliders() with { OutlineColor = hex },
         };
         Apply(next);
@@ -172,6 +187,7 @@ public partial class AppearanceWindow : Window
         if (_current.Style != DockStyles.Outline) slots.Add(Slot.Fill);
         if (_current.Style == DockStyles.Gradient) slots.Add(Slot.GradientEnd);
         slots.Add(Slot.Outline);
+        if (DockIndicators.Drawn.Contains(_current.Indicator)) slots.Add(Slot.Indicator);
 
         foreach (var s in slots)
         {
@@ -258,6 +274,107 @@ public partial class AppearanceWindow : Window
             card.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Choose(); e.Handled = true; } };
             StyleCards.Children.Add(card);
         }
+    }
+
+    // ---------------------------------------------------------------- themes and indicators
+
+    private void BuildThemeCards()
+    {
+        foreach (var t in DockThemeCatalog.Shared.Themes)
+        {
+            var pic = new Image { Source = DockThemeCatalog.Image(t.Preview), Width = 156, Height = 68, Stretch = Stretch.Uniform };
+            RenderOptions.SetBitmapScalingMode(pic, BitmapScalingMode.HighQuality);
+            var title = new TextBlock { Text = t.Name, Margin = new Thickness(0, 4, 0, 0) };
+            title.SetResourceReference(StyleProperty, "Text.BodyStrong");
+            var panel = new StackPanel { Children = { pic, title } };
+            if (t.Season is { } season)
+            {
+                var chip = new TextBlock { Text = season };
+                chip.SetResourceReference(StyleProperty, "Text.Caption");
+                panel.Children.Add(chip);
+            }
+            var card = new Border
+            {
+                Tag = t.Id, Width = 176, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(10, 8, 10, 10),
+                CornerRadius = new CornerRadius(12), Focusable = true, Cursor = Cursors.Hand, Child = panel, ToolTip = t.Blurb,
+            };
+            AutomationProperties.SetName(card, $"{t.Name} theme{(t.Season is null ? "" : $", {t.Season}")}: {t.Blurb}");
+            void Choose()
+            {
+                _slot = Slot.Fill;
+                var look = t.Appearance;
+                LoadControls(look);
+                Apply(look);
+            }
+            card.MouseLeftButtonUp += (_, _) => Choose();
+            card.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Choose(); e.Handled = true; } };
+            ThemeCards.Children.Add(card);
+        }
+        if (ThemeCards.Children.Count == 0)
+        {
+            var none = new TextBlock { Text = "Themes aren't installed with this copy of AmperDock." };
+            none.SetResourceReference(StyleProperty, "Text.Muted");
+            ThemeCards.Children.Add(none);
+        }
+    }
+
+    private void BuildIndicatorCards()
+    {
+        var names = new Dictionary<string, string>
+        {
+            ["paw"] = "Paw", ["dot"] = "Dot", ["mushroom"] = "Mushroom", ["star"] = "Star",
+            ["leaf"] = "Leaf", ["pumpkin"] = "Pumpkin", ["petal"] = "Petal", ["heart"] = "Heart",
+        };
+        foreach (var (id, name) in names)
+        {
+            FrameworkElement glyph;
+            if (id == "dot")
+                glyph = new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(Color.FromRgb(0x74, 0x44, 0xD6)) };
+            else if (id == "paw")
+                glyph = PawGlyph();
+            else if (DockThemeCatalog.Shared.Indicators.TryGetValue(id, out var png))
+                glyph = new Image { Source = DockThemeCatalog.Image(png), Width = 22, Height = 22 };
+            else continue;
+            glyph.HorizontalAlignment = HorizontalAlignment.Center;
+            glyph.VerticalAlignment = VerticalAlignment.Center;
+            var label = new TextBlock { Text = name, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+            label.SetResourceReference(StyleProperty, "Text.Caption");
+            var card = new Border
+            {
+                Tag = id, Width = 72, Margin = new Thickness(0, 0, 6, 6), Padding = new Thickness(6, 8, 6, 6), CornerRadius = new CornerRadius(10),
+                Focusable = true, Cursor = Cursors.Hand,
+                Child = new StackPanel { Children = { new Grid { Height = 24, Children = { glyph } }, label } },
+            };
+            AutomationProperties.SetName(card, $"{name} indicator");
+            void Choose() => Apply(ReadSliders() with { Indicator = id });
+            card.MouseLeftButtonUp += (_, _) => Choose();
+            card.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { Choose(); e.Handled = true; } };
+            IndicatorCards.Children.Add(card);
+        }
+    }
+
+    /// <summary>The paw indicator's shape (the same geometry the dock draws), for the indicator cards.</summary>
+    private static FrameworkElement PawGlyph()
+    {
+        var c = new Canvas { Width = 24, Height = 24 };
+        var brush = new SolidColorBrush(Color.FromRgb(0x74, 0x44, 0xD6));
+        foreach (var (x, y, rx, ry, deg) in new[] { (12.0, 16.2, 5.6, 4.6, 0.0), (5.2, 10.4, 2.2, 2.7, -18.0), (9.4, 6.2, 2.3, 2.9, -6.0), (14.6, 6.2, 2.3, 2.9, 6.0), (18.8, 10.4, 2.2, 2.7, 18.0) })
+        {
+            var e = new System.Windows.Shapes.Ellipse
+            {
+                Width = rx * 2, Height = ry * 2, Fill = brush, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new RotateTransform(deg),
+            };
+            Canvas.SetLeft(e, x - rx);
+            Canvas.SetTop(e, y - ry);
+            c.Children.Add(e);
+        }
+        return new Viewbox { Width = 20, Height = 20, Child = c };
+    }
+
+    private void OnBandShape(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        Apply(ReadSliders() with { Shape = (string)((RadioButton)sender).Tag });
     }
 
     private static void Select(Border card, bool on)

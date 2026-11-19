@@ -264,3 +264,24 @@ public sealed class ItemAndDockTests : IDisposable
     [Fact]
     public void IconRef_blank_is_none() => Assert.Null(IconRef.Parse("  "));
 }
+
+public class ThemeFieldTests
+{
+    [Fact]
+    public void Theme_fields_round_trip_and_bad_values_fall_back()
+    {
+        var a = new DockAppearance { Theme = "Autumn", Shape = DockShapes.Leaf, Indicator = "leaf", IndicatorColor = "#ff8800", Decorations = false };
+        var back = DockAppearance.FromJson(a.ToJson());
+        Assert.Equal("autumn", back.Theme);
+        Assert.Equal(DockShapes.Leaf, back.Shape);
+        Assert.Equal("leaf", back.Indicator);
+        Assert.Equal("#FF8800", back.IndicatorColor);
+        Assert.False(back.Decorations);
+
+        var bad = DockAppearance.FromJson("""{"shape":"blob","indicator":"ufo","indicator_color":"red"}""");
+        Assert.Equal(DockShapes.Rounded, bad.Shape);
+        Assert.Equal(DockIndicators.Paw, bad.Indicator);
+        Assert.Null(bad.IndicatorColor);
+        Assert.True(bad.Decorations);   // older saved looks without the field keep decorations on
+    }
+}

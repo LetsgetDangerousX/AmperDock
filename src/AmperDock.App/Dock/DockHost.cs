@@ -66,6 +66,7 @@ public sealed class DockHost : IDisposable
     private bool _tracking, _animating, _expanded;
     private long _lastTick;
     private RectF _lastBackground;             // dock space
+    private RectF _lastExtent;                 // dock space: the band plus decorations
 
     // press / drag state
     private int _pressIndex = -1;
@@ -117,6 +118,7 @@ public sealed class DockHost : IDisposable
         Place();
         var (w, h) = _frame.WindowSize;
         _renderer = new DockRenderer(_hwnd, w, h);
+        LoadThemePictures();
         Reload();
         ShowWindow(_hwnd, SW_SHOWNA);
 
@@ -142,6 +144,7 @@ public sealed class DockHost : IDisposable
     {
         _appearance = appearance.Normalised();
         _style = ComposeStyle();
+        LoadThemePictures();
         SetExpanded(_expanded, force: true);   // the region follows the band, which may now be a different shape
         Render();
     }
@@ -150,6 +153,22 @@ public sealed class DockHost : IDisposable
     {
         PreviewAppearance(appearance);
         _store.SetAppearance(_containerId, _appearance);
+    }
+
+    private DockThemeInfo? Theme => _appearance.Decorations ? DockThemeCatalog.Shared.Find(_appearance.Theme) : null;
+
+    /// <summary>Upload the current theme's decorations and indicator picture to the GPU (once each).</summary>
+    private void LoadThemePictures()
+    {
+        if (_renderer is null) return;
+        var keys = new List<string>();
+        if (DockThemeCatalog.Shared.Indicators.TryGetValue(_appearance.Indicator, out var ind)) keys.Add(ind);
+        if (Theme is { } theme) keys.AddRange(theme.Decor.Select(d => d.Sprite));
+        foreach (var key in keys.Distinct())
+        {
+            if (_renderer.HasIcon("theme:" + key)) continue;
+            if (DockThemeCatalog.Pixels(key) is { } px) _renderer.SetIcon("theme:" + key, px.w, px.h, px.px);
+        }
     }
 
     /// <summary>Theme colours plus the user's style, colours, opacity and outline choices.</summary>
@@ -180,8 +199,22 @@ public sealed class DockHost : IDisposable
                 outline = a.Opacity > 0 ? outlineColour.WithAlpha(k) : none;
                 break;
         }
+        var indicatorKind = a.Indicator switch
+        {
+            DockIndicators.Paw => IndicatorKind.Paw,
+            DockIndicators.Dot => IndicatorKind.Dot,
+            _ => IndicatorKind.Sprite,
+        };
+        var indicatorSprite = DockThemeCatalog.Shared.Indicators.TryGetValue(a.Indicator, out var ind) ? "theme:" + ind : null;
+        if (indicatorKind == IndicatorKind.Sprite && indicatorSprite is null) indicatorKind = IndicatorKind.Paw;   // picture missing
+        var indicator = a.IndicatorColor is null ? t.Indicator : Argb.FromRgba(a.IndicatorColor).WithAlpha(0.8f);
+        var indicatorFocused = a.IndicatorColor is null ? t.IndicatorFocused : Argb.FromRgba(a.IndicatorColor);
         return t with
         {
+            IndicatorKind = indicatorKind,
+            IndicatorSprite = indicatorSprite,
+            Indicator = indicator,
+            IndicatorFocused = indicatorFocused,
             Background = fill,
             BackgroundEnd = end,
             GradientAngle = a.GradientAngle,
@@ -449,8 +482,49 @@ public sealed class DockHost : IDisposable
             }
         }
 
-        _renderer.Draw(new DockScene(_frame.ToWindow(bg), _appearance.RadiusFor(bg.H), icons, indicators, label, _scale), _style);
+        var (decor, extent) = Decorations(bg);
+        _renderer.Draw(new DockScene(_frame.ToWindow(bg), _appearance.RadiusFor(bg.H), icons, indicators, label, _scale,
+            _frame.Edge, _appearance.Shape == DockShapes.Leaf ? BandShape.Leaf : BandShape.Rounded,
+            Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor), _style);
         _lastBackground = bg;
+        var grew = extent != _lastExtent;
+        _lastExtent = extent;
+        // at rest the window region hugs the band and its decorations; follow them when they change
+        // (a new theme, an item added or removed) so nothing gets clipped
+        if (grew && !_expanded) SetExpanded(false, force: true);
+    }
+
+    /// <summary>
+    /// The theme's decorations for a band at <paramref name="bg"/> (dock space), in window pixels, and the
+    /// dock-space box that holds the band plus everything that sticks out of it (leaf tips, ears, pictures).
+    /// An invisible dock (opacity 0) shows no decorations.
+    /// </summary>
+    private (List<DecorDraw> decor, RectF extent) Decorations(RectF bg)
+    {
+        var list = new List<DecorDraw>();
+        float x0 = bg.X, y0 = bg.Y, x1 = bg.Right, y1 = bg.Bottom;
+        if (_appearance.Shape == DockShapes.Leaf)
+        {
+            x0 -= DockRenderer.LeafTip * bg.H;
+            x1 += (DockRenderer.LeafTip + 0.36f) * bg.H;   // tip plus the stem
+            y0 -= 0.08f * bg.H;
+        }
+        if (_appearance.Opacity > 0 && Theme is { } theme)
+        {
+            if (theme.Ears) y0 = MathF.Min(y0, bg.Y - (DockRenderer.EarHeight + 0.04f) * bg.H);
+            foreach (var d in theme.Decor)
+            {
+                var r = DockThemeCatalog.Place(d, bg);
+                x0 = MathF.Min(x0, r.X); y0 = MathF.Min(y0, r.Y);
+                x1 = MathF.Max(x1, r.Right); y1 = MathF.Max(y1, r.Bottom);
+                var w = _frame.ToWindow(r);
+                list.Add(new DecorDraw("theme:" + d.Sprite, w.X + w.W / 2, w.Y + w.H / 2, r.W, r.H,
+                    DockThemeCatalog.Orient(_frame.Edge, d.Upright, d.Mirror), d.Behind));
+            }
+        }
+        y1 = MathF.Min(y1, _frame.Thickness);
+        y0 = MathF.Max(y0, 0);
+        return (list, new RectF(x0, y0, x1 - x0, y1 - y0));
     }
 
     /// <summary>
@@ -472,7 +546,10 @@ public sealed class DockHost : IDisposable
         else if (_items.Count == 0)                        // ...above a horizontal one
             r = new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale);
         else
-            r = new RectF(bg.X - 2, bg.Y - 2, bg.W + 4, t - bg.Y + 2);
+        {
+            var e = _lastExtent.W > 0 ? _lastExtent : bg;   // band plus decorations
+            r = new RectF(e.X - 2, e.Y - 2, e.W + 4, t - e.Y + 2);
+        }
         var win = _frame.ToWindow(r);
         var rgn = expanded ? CreateRectRgn(0, 0, w, h)
             : CreateRectRgn((int)MathF.Floor(win.X), (int)MathF.Floor(win.Y), (int)MathF.Ceiling(win.Right), (int)MathF.Ceiling(win.Bottom));

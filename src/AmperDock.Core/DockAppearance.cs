@@ -13,6 +13,23 @@ public static class DockStyles
     public static readonly string[] All = [Glass, Solid, Gradient, Outline];
 }
 
+/// <summary>The outline of the dock band.</summary>
+public static class DockShapes
+{
+    public const string Rounded = "rounded";   // a rounded rectangle (Roundness sets the corners)
+    public const string Leaf = "leaf";         // pointed ends, a midrib and veins, a little stem
+    public static readonly string[] All = [Rounded, Leaf];
+}
+
+/// <summary>Running indicators. Paw and dot are drawn in a colour; the rest are little pictures.</summary>
+public static class DockIndicators
+{
+    public const string Paw = "paw", Dot = "dot";
+    public static readonly string[] Drawn = [Paw, Dot];
+    public static readonly string[] Pictures = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart"];
+    public static bool IsKnown(string? id) => id is not null && (Drawn.Contains(id) || Pictures.Contains(id));
+}
+
 /// <summary>
 /// User-chosen look for one dock, stored in containers.appearance_json.
 /// Null colours = follow the theme (light/dark). Opacity 0 = an invisible dock: only the icons show.
@@ -45,6 +62,21 @@ public sealed record DockAppearance
     /// <summary>Outline width in DIPs, 0.5 to 6.</summary>
     public float OutlineWidth { get; init; } = 1;
 
+    /// <summary>The dock theme this look started from (decorations come from it), or null for none.</summary>
+    public string? Theme { get; init; }
+
+    /// <summary>Show the theme's decorations (ears, snow, little pictures on the dock).</summary>
+    public bool Decorations { get; init; } = true;
+
+    /// <summary>Band outline: <see cref="DockShapes"/>.</summary>
+    public string Shape { get; init; } = DockShapes.Rounded;
+
+    /// <summary>Running indicator: <see cref="DockIndicators"/>.</summary>
+    public string Indicator { get; init; } = DockIndicators.Paw;
+
+    /// <summary>Colour for the paw or dot indicator, or null for the theme's accent.</summary>
+    public string? IndicatorColor { get; init; }
+
     public static readonly DockAppearance Default = new();
 
     private static readonly JsonSerializerOptions Json = new()
@@ -73,6 +105,10 @@ public sealed record DockAppearance
         OutlineColor = Hex(OutlineColor),
         GradientAngle = float.IsFinite(GradientAngle) ? ((GradientAngle % 360) + 360) % 360 : 0,
         OutlineWidth = Math.Clamp(float.IsFinite(OutlineWidth) ? OutlineWidth : 1, 0.5f, 6),
+        Theme = string.IsNullOrWhiteSpace(Theme) ? null : Theme.Trim().ToLowerInvariant(),
+        Shape = DockShapes.All.Contains(Shape) ? Shape : DockShapes.Rounded,
+        Indicator = DockIndicators.IsKnown(Indicator) ? Indicator : DockIndicators.Paw,
+        IndicatorColor = Hex(IndicatorColor),
     };
 
     private static string? Hex(string? s) => IsHexColor(s) ? s!.ToUpperInvariant() : null;

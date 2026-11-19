@@ -1,0 +1,297 @@
+{
+  "indicators": {
+    "mushroom": "indicators/mushroom.png",
+    "star": "indicators/star.png",
+    "leaf": "indicators/leaf.png",
+    "pumpkin": "indicators/pumpkin.png",
+    "petal": "indicators/petal.png",
+    "heart": "indicators/heart.png"
+  },
+  "themes": [
+    {
+      "id": "lilac",
+      "name": "Lilac",
+      "season": null,
+      "blurb": "Frosted lilac glass. Cute only in the details.",
+      "preview": "previews/lilac.png",
+      "look": {
+        "style": "glass",
+        "opacity": 78,
+        "outline": true,
+        "outline_width": 1,
+        "roundness": 0.5,
+        "indicator": "paw",
+        "theme": "lilac",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": []
+    },
+    {
+      "id": "purrple",
+      "name": "Purrple",
+      "season": null,
+      "blurb": "Violet glass with cat ears on top.",
+      "preview": "previews/purrple.png",
+      "look": {
+        "style": "glass",
+        "color": "#C7B0F7",
+        "opacity": 84,
+        "outline": true,
+        "outline_color": "#9C7BE6",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "paw",
+        "indicator_color": "#7444D6",
+        "theme": "purrple",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": true,
+      "snow": false,
+      "decor": []
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom Grove",
+      "season": null,
+      "blurb": "Warm cream, a mossy edge and a toadstool on the corner.",
+      "preview": "previews/mushroom.png",
+      "look": {
+        "style": "solid",
+        "color": "#FFF6E8",
+        "opacity": 90,
+        "outline": true,
+        "outline_color": "#9DBF8A",
+        "outline_width": 2,
+        "roundness": 0.5,
+        "indicator": "mushroom",
+        "theme": "mushroom",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/shrooms.png",
+          "from": "start",
+          "offset": -0.22,
+          "edge": "bottom",
+          "dy": 0.0,
+          "anchor": [
+            0.36,
+            0.95
+          ],
+          "size": 0.88,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "id": "midnight",
+      "name": "Midnight",
+      "season": null,
+      "blurb": "Dark plum, no decorations. For when you want it plain.",
+      "preview": "previews/midnight.png",
+      "look": {
+        "style": "solid",
+        "color": "#2A1F3D",
+        "opacity": 90,
+        "outline": true,
+        "outline_color": "#4A3A66",
+        "outline_width": 1,
+        "roundness": 0.5,
+        "indicator": "dot",
+        "indicator_color": "#B497FF",
+        "theme": "midnight",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": []
+    },
+    {
+      "id": "snowy-pine",
+      "name": "Snowy Pine",
+      "season": "Christmas",
+      "blurb": "Pine green with a snow cap and a sprig of holly.",
+      "preview": "previews/snowy-pine.png",
+      "look": {
+        "style": "gradient",
+        "color": "#2F6B4F",
+        "color2": "#3F8C63",
+        "gradient_angle": 90,
+        "opacity": 94,
+        "outline": true,
+        "outline_color": "#22503A",
+        "outline_width": 1,
+        "roundness": 0.5,
+        "indicator": "star",
+        "theme": "snowy-pine",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": true,
+      "decor": [
+        {
+          "sprite": "decor/holly.png",
+          "from": "end",
+          "offset": 0.62,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.56
+          ],
+          "size": 0.62,
+          "behind": false,
+          "upright": false,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "id": "autumn-leaf",
+      "name": "Autumn Leaf",
+      "season": "Autumn",
+      "blurb": "A leaf-shaped dock with veins, a stem and an acorn friend.",
+      "preview": "previews/autumn-leaf.png",
+      "look": {
+        "style": "gradient",
+        "color": "#F6B25E",
+        "color2": "#E0673A",
+        "gradient_angle": 0,
+        "opacity": 95,
+        "outline": true,
+        "outline_color": "#B5502A",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "shape": "leaf",
+        "indicator": "leaf",
+        "theme": "autumn-leaf",
+        "decorations": true
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/acorn.png",
+          "from": "start",
+          "offset": -0.05,
+          "edge": "top",
+          "dy": 0.2,
+          "anchor": [
+            0.5,
+            0.9
+          ],
+          "size": 0.55,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "id": "pumpkin-night",
+      "name": "Pumpkin Night",
+      "season": "Halloween",
+      "blurb": "Dusky purple, a jack-o'-lantern peeking over, and a tiny bat.",
+      "preview": "previews/pumpkin-night.png",
+      "look": {
+        "style": "glass",
+        "color": "#3B2557",
+        "opacity": 90,
+        "outline": true,
+        "outline_color": "#6B4A9A",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "pumpkin",
+        "theme": "pumpkin-night",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/pumpkin.png",
+          "from": "end",
+          "offset": 0.8,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.74
+          ],
+          "size": 0.78,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/bat.png",
+          "from": "start",
+          "offset": 0.55,
+          "edge": "top",
+          "dy": -0.5,
+          "anchor": [
+            0.5,
+            0.55
+          ],
+          "size": 0.5,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "id": "sakura-breeze",
+      "name": "Sakura Breeze",
+      "season": "Spring",
+      "blurb": "Blossom pink with a cherry branch on the corner.",
+      "preview": "previews/sakura-breeze.png",
+      "look": {
+        "style": "gradient",
+        "color": "#FFE3EE",
+        "color2": "#FFC6DD",
+        "gradient_angle": 90,
+        "opacity": 92,
+        "outline": true,
+        "outline_color": "#F4A6C8",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "petal",
+        "theme": "sakura-breeze",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/sakura.png",
+          "from": "start",
+          "offset": 0.12,
+          "edge": "top",
+          "dy": 0.22,
+          "anchor": [
+            0.2,
+            0.8
+          ],
+          "size": 0.85,
+          "behind": false,
+          "upright": false,
+          "mirror": false
+        }
+      ]
+    }
+  ]
+}

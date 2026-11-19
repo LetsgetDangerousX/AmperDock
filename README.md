@@ -29,7 +29,13 @@ The art is original and lives in `replica/design/`. After changing it, rebuild t
 ```
 python replica/design/make_aesthetic_assets.py replica/design/assets
 python tools/build_lookpacks.py
+
+python replica/design/make_dock_themes.py   # dock theme decorations and indicators
+python tools/build_dockthemes.py
 ```
+
+Dock themes (Lilac, Purrple, Mushroom Grove, Midnight, Snowy Pine, Autumn Leaf, Pumpkin Night, Sakura Breeze)
+are picked under **Dock appearance → Themes**. Each sets a starting look, and any colour can still be changed.
 
 (`build_lookpacks.py` needs Pillow and uses Microsoft Edge to render.) `--selftest-looks report.txt` applies
 and restores a cursor set and a folder icon on a temp folder, and checks everything came back exactly.

@@ -44,7 +44,21 @@ public readonly record struct Argb(uint Value)
 /// (degrees, 0 = left to right, 90 = top to bottom). OutlineWidth is in DIPs.
 /// </summary>
 public sealed record DockStyle(Argb Background, Argb Outline, Argb Highlight, Argb Indicator, Argb IndicatorFocused,
-    Argb LabelBg, Argb LabelText, Argb Shadow, Argb? BackgroundEnd = null, float GradientAngle = 0, float OutlineWidth = 1);
+    Argb LabelBg, Argb LabelText, Argb Shadow, Argb? BackgroundEnd = null, float GradientAngle = 0, float OutlineWidth = 1,
+    IndicatorKind IndicatorKind = IndicatorKind.Paw, string? IndicatorSprite = null);
+
+/// <summary>How running apps are marked: a drawn paw, a drawn dot, or a little picture (a sprite key).</summary>
+public enum IndicatorKind { Paw, Dot, Sprite }
+
+/// <summary>The band's outline.</summary>
+public enum BandShape { Rounded, Leaf }
+
+/// <summary>
+/// A decoration picture. (CenterX, CenterY) and the size are in window pixels; Orient is the 2x2 part
+/// of the transform that turns the art to face away from the screen edge (identity for upright art).
+/// Behind = drawn under the band, so it peeks out from behind it.
+/// </summary>
+public readonly record struct DecorDraw(string Key, float CenterX, float CenterY, float Width, float Height, Matrix3x2 Orient, bool Behind, float Opacity = 1);
 
 public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing);
 public readonly record struct IndicatorDraw(float CenterX, float CenterY, float Size, bool Focused);
@@ -55,8 +69,14 @@ public enum LabelSide { Above, Below, Right, Left }
 public sealed record LabelDraw(string Text, float X, float Y, LabelSide Side = LabelSide.Above);
 
 /// <summary>Everything one frame needs. Built by the app from DockLayout each frame.</summary>
+/// <remarks>
+/// Edge says which way "away from the screen" points, so shapes and toppings (ears, snow) face the
+/// right way on every side. Ears and Snow are drawn with the band's own paint, so they follow its colour.
+/// </remarks>
 public sealed record DockScene(RectF Background, float Radius, IReadOnlyList<IconDraw> Icons,
-    IReadOnlyList<IndicatorDraw> Indicators, LabelDraw? Label, float Scale);
+    IReadOnlyList<IndicatorDraw> Indicators, LabelDraw? Label, float Scale,
+    DockEdge Edge = DockEdge.Bottom, BandShape Shape = BandShape.Rounded, bool Ears = false, bool Snow = false,
+    IReadOnlyList<DecorDraw>? Decor = null);
 
 /// <summary>
 /// GPU renderer for one dock window: D3D11 device → Direct2D device context → a premultiplied-alpha
@@ -82,6 +102,7 @@ public sealed class DockRenderer : IDisposable
     private IDWriteTextFormat? _labelFormat;
     private float _labelFormatScale;
     private readonly Dictionary<string, ID2D1Bitmap1> _icons = new();
+    private ID2D1StrokeStyle? _round;
     private readonly Dictionary<string, (int w, int h, byte[] px)> _iconSource = new();
 
     public DockRenderer(nint hwnd, int width, int height)
@@ -107,6 +128,7 @@ public sealed class DockRenderer : IDisposable
         _d2dDevice = _d2dFactory.CreateDevice(_dxgi);
         _ctx = _d2dDevice.CreateDeviceContext(DeviceContextOptions.None);
         _ctx.UnitMode = UnitMode.Pixels;   // the app works in device pixels
+        _round = _d2dFactory.CreateStrokeStyle(new StrokeStyleProperties { StartCap = CapStyle.Round, EndCap = CapStyle.Round, LineJoin = LineJoin.Round });
 
         using var adapter = _dxgi.GetAdapter();
         using var factory = adapter.GetParent<IDXGIFactory2>();
@@ -184,7 +206,10 @@ public sealed class DockRenderer : IDisposable
         ctx.BeginDraw();
         ctx.Clear(new Color4(0, 0, 0, 0));
 
+        var decor = scene.Decor ?? [];
+        foreach (var d in decor) if (d.Behind) DrawDecor(ctx, d);
         DrawBackground(ctx, scene, style);
+        foreach (var d in decor) if (!d.Behind) DrawDecor(ctx, d);
 
         foreach (var icon in scene.Icons)
         {
@@ -196,7 +221,7 @@ public sealed class DockRenderer : IDisposable
                 DrawPlaceholder(ctx, r, style, icon.Opacity);
         }
 
-        foreach (var ind in scene.Indicators) DrawPaw(ctx, ind, style);
+        foreach (var ind in scene.Indicators) DrawIndicator(ctx, ind, style);
         if (scene.Label is not null) DrawLabel(ctx, scene.Label, scene.Scale, style);
 
         var hr = ctx.EndDraw();
@@ -204,40 +229,296 @@ public sealed class DockRenderer : IDisposable
         if (hr.Failure || present.Failure) RecoverDevice();
     }
 
-    private static void DrawBackground(ID2D1DeviceContext ctx, DockScene s, DockStyle style)
+    /// <summary>
+    /// Maps band-local coordinates (x along the dock from its start, y across it with 0 = the side away
+    /// from the screen edge) to window pixels, for a band occupying window rect <see cref="B"/>.
+    /// </summary>
+    private readonly record struct BandMap(RectF B, DockEdge Edge)
+    {
+        public bool Vertical => Edge is DockEdge.Left or DockEdge.Right;
+        public float L => Vertical ? B.H : B.W;
+        public float H => Vertical ? B.W : B.H;
+        public Vector2 P(float x, float y) => Edge switch
+        {
+            DockEdge.Top => new(B.X + x, B.Bottom - y),
+            DockEdge.Left => new(B.Right - y, B.Y + x),
+            DockEdge.Right => new(B.X + y, B.Y + x),
+            _ => new(B.X + x, B.Y + y),
+        };
+    }
+
+    /// <summary>A path built in band-local coordinates. Dispose it after drawing.</summary>
+    private sealed class LocalPath : IDisposable
+    {
+        private readonly BandMap _map;
+        private readonly bool _filled;
+        private ID2D1GeometrySink? _sink;
+        public ID2D1PathGeometry Geometry { get; }
+
+        public LocalPath(ID2D1Factory1 factory, BandMap map, bool filled = true)
+        {
+            _map = map;
+            _filled = filled;
+            Geometry = factory.CreatePathGeometry();
+            _sink = Geometry.Open();
+        }
+
+        public LocalPath Begin(float x, float y) { _sink!.BeginFigure(_map.P(x, y), _filled ? FigureBegin.Filled : FigureBegin.Hollow); return this; }
+        public LocalPath Line(float x, float y) { _sink!.AddLine(_map.P(x, y)); return this; }
+        public LocalPath Curve(float x1, float y1, float x2, float y2, float x, float y)
+        {
+            _sink!.AddBezier(new BezierSegment { Point1 = _map.P(x1, y1), Point2 = _map.P(x2, y2), Point3 = _map.P(x, y) });
+            return this;
+        }
+        public LocalPath Quad(float x1, float y1, float x, float y)
+        {
+            _sink!.AddQuadraticBezier(new QuadraticBezierSegment { Point1 = _map.P(x1, y1), Point2 = _map.P(x, y) });
+            return this;
+        }
+        public LocalPath End(bool close = true) { _sink!.EndFigure(close ? FigureEnd.Closed : FigureEnd.Open); return this; }
+
+        /// <summary>Finish the figure list; the geometry is ready to draw.</summary>
+        public ID2D1PathGeometry Done()
+        {
+            if (_sink is not null) { _sink.Close(); _sink.Dispose(); _sink = null; }
+            return Geometry;
+        }
+
+        public void Dispose() { _sink?.Dispose(); Geometry.Dispose(); }
+    }
+
+    /// <summary>How far a leaf's pointed tips reach past the band's ends, as a fraction of the band height.</summary>
+    public const float LeafTip = 0.42f;
+
+    /// <summary>How far cat ears rise past the band's far edge, as a fraction of the band height.</summary>
+    public const float EarHeight = 0.30f;
+
+    private LocalPath BandPath(DockScene s, BandMap map)
+    {
+        float L = map.L, H = map.H;
+        var p = new LocalPath(_d2dFactory!, map);
+        if (s.Shape != BandShape.Leaf)
+        {
+            // rounded rectangle in local coordinates, so every edge uses the same code
+            var r = MathF.Min(s.Radius, MathF.Min(L, H) / 2);
+            const float k = 0.5523f;   // bezier circle constant
+            p.Begin(r, 0).Line(L - r, 0).Curve(L - r + r * k, 0, L, r - r * k, L, r)
+             .Line(L, H - r).Curve(L, H - r + r * k, L - r + r * k, H, L - r, H)
+             .Line(r, H).Curve(r - r * k, H, 0, H - r + r * k, 0, H - r)
+             .Line(0, r).Curve(0, r - r * k, r - r * k, 0, r, 0).End();
+            p.Done();
+            return p;
+        }
+        float e = LeafTip * H, arch = MathF.Min(0.07f * H, L * 0.02f);
+        p.Begin(-e, 0.5f * H)
+         .Curve(-e * 0.55f, 0.12f * H, -0.05f * H, 0, 0.3f * H, 0)
+         .Curve(L * 0.3f, -arch, L * 0.7f, -arch, L - 0.3f * H, 0)
+         .Curve(L + 0.05f * H, 0, L + e * 0.55f, 0.1f * H, L + e, 0.45f * H)
+         .Curve(L + e * 0.5f, 0.85f * H, L + 0.05f * H, H, L - 0.3f * H, H)
+         .Line(0.3f * H, H)
+         .Curve(-0.05f * H, H, -e * 0.55f, 0.88f * H, -e, 0.5f * H)
+         .End();
+        p.Done();
+        return p;
+    }
+
+    private void DrawBackground(ID2D1DeviceContext ctx, DockScene s, DockStyle style)
     {
         var b = s.Background;
         var hasFill = style.Background.Alpha > 0 || style.BackgroundEnd is { Alpha: > 0 };
         if (!hasFill && style.Outline.Alpha == 0) return;   // invisible dock: icons only
-        // soft shadow: a few expanding, fading rounded rects (a real blur effect comes with the effects work)
+        var map = new BandMap(b, s.Edge);
+        using var bandPath = BandPath(s, map);
+        var band = bandPath.Geometry;
+
+        // soft shadow: the band drawn a few times, wider and fainter each time
         if (style.Shadow.Alpha > 0)
         using (var shadow = ctx.CreateSolidColorBrush(style.Shadow.WithAlpha(1).ToColor4()))
         {
+            var (dx, dy) = s.Edge switch { DockEdge.Top => (0f, -3f), DockEdge.Left => (-3f, 0f), DockEdge.Right => (3f, 0f), _ => (0f, 3f) };
+            ctx.Transform = Matrix3x2.CreateTranslation(dx * s.Scale, dy * s.Scale);
             for (var i = 1; i <= 4; i++)
             {
                 shadow.Opacity = 0.05f / i * (style.Shadow.Alpha / 255f);
-                var g = i * 3 * s.Scale;
-                ctx.FillRoundedRectangle(new RoundedRectangle(new RectangleF(b.X - g, b.Y - g + 4 * s.Scale, b.W + g * 2, b.H + g * 2), s.Radius + g, s.Radius + g), shadow);
+                ctx.DrawGeometry(band, shadow, i * 6 * s.Scale, _round);
+                ctx.FillGeometry(band, shadow);
             }
+            ctx.Transform = Matrix3x2.Identity;
         }
-        var rr = new RoundedRectangle(new RectangleF(b.X, b.Y, b.W, b.H), s.Radius, s.Radius);
+
+        using var fill = FillBrush(ctx, style, b);
         using var outline = ctx.CreateSolidColorBrush(style.Outline.ToColor4());
-        using var highlight = ctx.CreateSolidColorBrush(style.Highlight.ToColor4());
-        if (hasFill)
-        {
-            using var fill = FillBrush(ctx, style, b);
-            ctx.FillRoundedRectangle(rr, fill);
-        }
+        var ow = style.OutlineWidth * s.Scale;
+
+        if (s.Ears && hasFill) DrawEars(ctx, map, fill, outline, style, ow);
+
+        if (hasFill) ctx.FillGeometry(band, fill);
+        if (s.Snow && hasFill) DrawSnow(ctx, map, band, style);
+        if (s.Shape == BandShape.Leaf) DrawVeins(ctx, map, style, s.Scale);
+
         if (style.Outline.Alpha > 0)
         {
-            // keep the stroke inside the band so thick outlines don't get clipped by the window region
-            var w = style.OutlineWidth * s.Scale;
-            var inner = new RoundedRectangle(new RectangleF(b.X + w / 2, b.Y + w / 2, b.W - w, b.H - w), MathF.Max(0, s.Radius - w / 2), MathF.Max(0, s.Radius - w / 2));
-            ctx.DrawRoundedRectangle(inner, outline, w);
+            if (s.Shape == BandShape.Rounded)
+            {
+                // keep the stroke inside the band so thick outlines don't get clipped by the window region
+                var inner = new RoundedRectangle(new RectangleF(b.X + ow / 2, b.Y + ow / 2, b.W - ow, b.H - ow), MathF.Max(0, s.Radius - ow / 2), MathF.Max(0, s.Radius - ow / 2));
+                ctx.DrawRoundedRectangle(inner, outline, ow);
+            }
+            else ctx.DrawGeometry(band, outline, ow, _round);
         }
-        var inset = 1.5f * s.Scale;
-        if (style.Highlight.Alpha > 0)
-        ctx.DrawLine(new Vector2(b.X + s.Radius, b.Y + inset), new Vector2(b.Right - s.Radius, b.Y + inset), highlight, 1 * s.Scale);
+        if (s.Shape == BandShape.Leaf) DrawStem(ctx, map, style);
+
+        if (style.Highlight.Alpha > 0 && s.Shape == BandShape.Rounded)
+        {
+            using var highlight = ctx.CreateSolidColorBrush(style.Highlight.ToColor4());
+            var inset = 1.5f * s.Scale;
+            var r = MathF.Min(s.Radius, map.L / 2);
+            ctx.DrawLine(map.P(r, inset), map.P(map.L - r, inset), highlight, 1 * s.Scale);
+        }
+    }
+
+    /// <summary>
+    /// Two pairs of cat ears on the far edge, painted like the band so they follow its colour. Their
+    /// bases stop at the band's edge (so they don't show through see-through glass) and only the sides
+    /// get the outline.
+    /// </summary>
+    private void DrawEars(ID2D1DeviceContext ctx, BandMap map, ID2D1Brush fill, ID2D1Brush outline, DockStyle style, float ow)
+    {
+        float H = map.H, L = map.L;
+        var a = MathF.Min(1, style.Background.Alpha / 255f + 0.2f);
+        using var pink = ctx.CreateSolidColorBrush(new Color4(0xF4 / 255f, 0xA6 / 255f, 0xC8 / 255f, a));
+        foreach (var c in new[] { MathF.Min(0.95f * H, L * 0.25f), MathF.Max(L - 0.95f * H, L * 0.75f) })
+        {
+            foreach (var side in new[] { -1f, 1f })
+            {
+                float inner = c + side * 0.06f * H, outer = c + side * 0.40f * H, tipX = c + side * 0.27f * H, tipY = -EarHeight * H;
+                LocalPath Sides(bool closed)
+                {
+                    var p = new LocalPath(_d2dFactory!, map, filled: closed);
+                    p.Begin(inner, 0.04f * H).Line(tipX - side * 0.05f * H, tipY + 0.06f * H)
+                     .Quad(tipX, tipY - 0.02f * H, tipX + side * 0.05f * H, tipY + 0.06f * H)
+                     .Line(outer, 0.04f * H).End(closed);
+                    p.Done();
+                    return p;
+                }
+                using (var ear = Sides(true)) ctx.FillGeometry(ear.Geometry, fill);
+                using (var innerEar = new LocalPath(_d2dFactory!, map))
+                {
+                    innerEar.Begin(c + side * 0.13f * H, 0.03f * H).Line(tipX + side * 0.005f * H, tipY + 0.13f * H).Line(c + side * 0.33f * H, 0.03f * H).End();
+                    ctx.FillGeometry(innerEar.Done(), pink);
+                }
+                if (style.Outline.Alpha > 0)
+                    using (var edge = Sides(false)) ctx.DrawGeometry(edge.Geometry, outline, ow, _round);
+            }
+        }
+    }
+
+    /// <summary>A soft, scalloped snow cap along the far edge, clipped to the band.</summary>
+    private void DrawSnow(ID2D1DeviceContext ctx, BandMap map, ID2D1Geometry band, DockStyle style)
+    {
+        float H = map.H, L = map.L;
+        var k = MathF.Min(1, style.Background.Alpha / 255f + 0.2f);
+        LocalPath Cap(float extra)
+        {
+            var p = new LocalPath(_d2dFactory!, map);
+            p.Begin(-H, -H).Line(L + H, -H).Line(L + H, 0.24f * H + extra);
+            // scallops from the far end back to the start; the depth varies so it looks hand-made
+            var x = L + H * 0.2f;
+            var i = 0;
+            while (x > -H * 0.2f)
+            {
+                var w = H * (0.42f + 0.12f * ((i * 7) % 3));
+                var depth = H * (0.2f + 0.06f * ((i * 5) % 3)) + extra;
+                p.Quad(x - w / 2, depth + 0.16f * H, x - w, depth);
+                if (i % 4 == 2)
+                {
+                    // a little icicle drip
+                    p.Quad(x - w - 0.03f * H, depth + 0.22f * H, x - w - 0.07f * H, depth);
+                    x -= 0.07f * H;
+                }
+                x -= w;
+                i++;
+            }
+            p.Line(-H, 0.24f * H + extra).End();
+            p.Done();
+            return p;
+        }
+        ctx.PushLayer(new LayerParameters1
+        {
+            ContentBounds = new Rect(-100000, -100000, 200000, 200000),
+            GeometricMask = band,
+            MaskAntialiasMode = AntialiasMode.PerPrimitive,
+            MaskTransform = Matrix3x2.Identity,
+            Opacity = 1,
+        }, null);
+        using (var shade = Cap(0.04f * H))
+        using (var b = ctx.CreateSolidColorBrush(new Color4(0.80f, 0.88f, 0.97f, k)))
+            ctx.FillGeometry(shade.Geometry, b);
+        using (var cap = Cap(0))
+        using (var w = ctx.CreateSolidColorBrush(new Color4(1, 1, 1, k)))
+            ctx.FillGeometry(cap.Geometry, w);
+        ctx.PopLayer();
+    }
+
+    private void DrawVeins(ID2D1DeviceContext ctx, BandMap map, DockStyle style, float scale)
+    {
+        float H = map.H, L = map.L, e = LeafTip * H;
+        var colour = style.Outline.Alpha > 0 ? style.Outline : style.Background;
+        using var vein = ctx.CreateSolidColorBrush(colour.WithAlpha(0.4f).ToColor4());
+        using (var rib = new LocalPath(_d2dFactory!, map, filled: false))
+        {
+            rib.Begin(-e * 0.6f, 0.5f * H).Curve(L * 0.3f, 0.56f * H, L * 0.7f, 0.44f * H, L + e * 0.7f, 0.46f * H).End(close: false);
+            ctx.DrawGeometry(rib.Done(), vein, MathF.Max(1, 0.035f * H), _round);
+        }
+        var step = MathF.Max(0.9f * H, 24 * scale);
+        for (var x = 0.25f * H; x < L - 0.2f * H; x += step)
+        {
+            using var v = new LocalPath(_d2dFactory!, map, filled: false);
+            v.Begin(x + 0.38f * H, 0.1f * H).Quad(x + 0.08f * H, 0.3f * H, x, 0.5f * H).Quad(x + 0.08f * H, 0.7f * H, x + 0.38f * H, 0.9f * H).End(close: false);
+            ctx.DrawGeometry(v.Done(), vein, MathF.Max(0.75f, 0.022f * H), _round);
+        }
+    }
+
+    private void DrawStem(ID2D1DeviceContext ctx, BandMap map, DockStyle style)
+    {
+        float H = map.H, L = map.L, e = LeafTip * H;
+        var colour = style.Outline.Alpha > 0 ? style.Outline.WithAlpha(1) : style.Background.WithAlpha(1);
+        using var brush = ctx.CreateSolidColorBrush(colour.ToColor4());
+        using var stem = new LocalPath(_d2dFactory!, map, filled: false);
+        stem.Begin(L + e * 0.92f, 0.45f * H).Curve(L + e + 0.12f * H, 0.42f * H, L + e + 0.24f * H, 0.33f * H, L + e + 0.3f * H, 0.16f * H).End(close: false);
+        ctx.DrawGeometry(stem.Done(), brush, MathF.Max(1.5f, 0.07f * H), _round);
+    }
+
+    private void DrawDecor(ID2D1DeviceContext ctx, DecorDraw d)
+    {
+        if (!_icons.TryGetValue(d.Key, out var bmp)) return;
+        var c = new Vector2(d.CenterX, d.CenterY);
+        ctx.Transform = Matrix3x2.CreateTranslation(-c) * d.Orient * Matrix3x2.CreateTranslation(c);
+        ctx.DrawBitmap(bmp, new Rect(d.CenterX - d.Width / 2, d.CenterY - d.Height / 2, d.Width, d.Height), d.Opacity,
+            InterpolationMode.HighQualityCubic, null, null);
+        ctx.Transform = Matrix3x2.Identity;
+    }
+
+    private void DrawIndicator(ID2D1DeviceContext ctx, IndicatorDraw ind, DockStyle style)
+    {
+        switch (style.IndicatorKind)
+        {
+            case IndicatorKind.Sprite when style.IndicatorSprite is { } key && _icons.TryGetValue(key, out var bmp):
+                var size = ind.Size * (ind.Focused ? 1.45f : 1.25f);
+                ctx.DrawBitmap(bmp, new Rect(ind.CenterX - size / 2, ind.CenterY - size / 2, size, size), ind.Focused ? 1f : 0.85f,
+                    InterpolationMode.HighQualityCubic, null, null);
+                break;
+            case IndicatorKind.Dot:
+                using (var brush = ctx.CreateSolidColorBrush((ind.Focused ? style.IndicatorFocused : style.Indicator).ToColor4()))
+                {
+                    var r = ind.Size * (ind.Focused ? 0.26f : 0.2f);
+                    ctx.FillEllipse(new Ellipse(new Vector2(ind.CenterX, ind.CenterY), r, r), brush);
+                }
+                break;
+            default:
+                DrawPaw(ctx, ind, style);
+                break;
+        }
     }
 
     private static ID2D1Brush FillBrush(ID2D1DeviceContext ctx, DockStyle style, RectF b)
@@ -320,6 +601,7 @@ public sealed class DockRenderer : IDisposable
         foreach (var b in _icons.Values) b.Dispose();
         _icons.Clear();
         _labelFormat?.Dispose(); _labelFormat = null;
+        _round?.Dispose(); _round = null;
         if (_ctx is not null) _ctx.Target = null;
         _target?.Dispose(); _visual?.Dispose(); _dcompTarget?.Dispose(); _dcomp?.Dispose();
         _swap?.Dispose(); _ctx?.Dispose(); _d2dDevice?.Dispose(); _d2dFactory?.Dispose(); _dxgi?.Dispose(); _d3d?.Dispose();
