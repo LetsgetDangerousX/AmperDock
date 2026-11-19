@@ -13,9 +13,9 @@ Needs the .NET 10 SDK (`winget install Microsoft.DotNet.SDK.10`).
 dotnet run --project src/AmperDock.App
 ```
 
-- Right-click the dock for the component gallery and **Quit AmperDock**.
+- Right-click the dock to add apps or folders, change the dock's appearance, or **Quit AmperDock**. You can also drag apps, files and folders from Explorer onto the dock.
 - Settings live in `%APPDATA%\AmperDock\amperdock.db`. Use `--db <path>` to try it with a throwaway database.
-- `--gallery` opens the component gallery at startup.
+- `--gallery` opens the developer component gallery (a test page for the UI building blocks, not settings).
 - Set `AMPERDOCK_TRACE=1` to write a trace log to `%LOCALAPPDATA%\AmperDock\logs\`.
 
 ## Test

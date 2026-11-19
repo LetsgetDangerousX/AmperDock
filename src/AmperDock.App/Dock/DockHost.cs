@@ -512,11 +512,7 @@ public sealed class DockHost : IDisposable
             var rest = DockLayout.RestCenters(_items.Count, _m, _width / 2f);
             var index = DockLayout.InsertIndex(rest, pt.X);
 
-            var already = _items.Where(i => i.Target is not null).Select(i => i.Target!).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var fresh = paths.Where(p => !already.Contains(p)).Select(Shortcuts.FromDroppedPath).ToList();
-            if (fresh.Count == 0) { Toast("That's already on the dock."); return; }
-            _store.InsertItems(_containerId, index, fresh);
-            Reload();
+            AddPaths(paths, index);
         }
         finally { Native.DragFinish(hDrop); }
     }
@@ -526,15 +522,17 @@ public sealed class DockHost : IDisposable
         var (rects, _) = CurrentRects();
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, Appearance = 9, Gallery = 10, Quit = 11;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Appearance = 9, Quit = 11;
         if (hit >= 0)
         {
             AppendMenu(menu, MF_STRING, OpenLocation, "Open file location");
             AppendMenu(menu, MF_STRING, Remove, "Remove from dock");
             AppendMenu(menu, MF_SEPARATOR, 0, null);
         }
+        AppendMenu(menu, MF_STRING, AddApp, "Add an app or file…");
+        AppendMenu(menu, MF_STRING, AddFolder, "Add a folder…");
+        AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, MF_STRING, Appearance, "Dock appearance…");
-        AppendMenu(menu, MF_STRING, Gallery, "Component gallery…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, MF_STRING, Quit, "Quit AmperDock");
 
@@ -560,13 +558,56 @@ public sealed class DockHost : IDisposable
             case Appearance:
                 _openAppearance(this);
                 break;
-            case Gallery:
-                _openGallery();
+            case AddApp:
+                AddFromPicker(folder: false, after: hit);
+                break;
+            case AddFolder:
+                AddFromPicker(folder: true, after: hit);
                 break;
             case Quit:
                 System.Windows.Application.Current.Shutdown();
                 break;
         }
+    }
+
+    /// <summary>
+    /// "Add an app or file…" / "Add a folder…": the standard Windows pickers. New items go after the
+    /// item you right-clicked, or at the end of the dock.
+    /// </summary>
+    private void AddFromPicker(bool folder, int after)
+    {
+        string[] paths;
+        if (folder)
+        {
+            var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Add a folder to the dock", Multiselect = true };
+            if (dlg.ShowDialog() != true) return;
+            paths = dlg.FolderNames;
+        }
+        else
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Add an app or file to the dock",
+                Multiselect = true,
+                DereferenceLinks = false,   // keep .lnk shortcuts as shortcuts
+                Filter = "Apps and shortcuts|*.exe;*.lnk;*.url;*.appref-ms|All files|*.*",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu),
+            };
+            if (dlg.ShowDialog() != true) return;
+            paths = dlg.FileNames;
+        }
+        AddPaths(paths, after >= 0 ? after + 1 : _items.Count);
+    }
+
+    /// <summary>Shared by drag-and-drop and the pickers: skip duplicates, insert, refresh.</summary>
+    private void AddPaths(IReadOnlyList<string> paths, int index)
+    {
+        var already = _items.Where(i => i.Target is not null).Select(i => i.Target!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var fresh = paths.Where(p => !already.Contains(p)).Select(Shortcuts.FromDroppedPath).ToList();
+        if (fresh.Count == 0) { Toast(paths.Count == 1 ? "That's already on the dock." : "Those are already on the dock."); return; }
+        _store.InsertItems(_containerId, index, fresh);
+        Reload();
+        Toast(fresh.Count == 1 ? $"Added {fresh[0].Label}" : $"Added {fresh.Count} items");
     }
 
     private static nint StaticWndProc(nint hwnd, uint msg, nint w, nint l)
