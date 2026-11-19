@@ -52,6 +52,20 @@ public sealed class StoreTests : IDisposable
         Assert.Equal(items.Count, items.Select(i => i.SortOrder).Distinct().Count());
     }
 
+    [Fact]
+    public void Appearance_round_trips_and_clamps()
+    {
+        using var s = NewStore();
+        Assert.Equal(DockAppearance.Default, s.GetAppearance(SettingsStore.MainDockId));   // '{}' in a fresh db
+        s.SetAppearance(SettingsStore.MainDockId, new DockAppearance { Roundness = 0, Color = "#e86fa6", Opacity = 0 });
+        var a = s.GetAppearance(SettingsStore.MainDockId);
+        Assert.Equal((0f, "#E86FA6", 0), (a.Roundness, a.Color, a.Opacity));
+
+        Assert.Equal(100, DockAppearance.FromJson("""{"opacity": 250}""").Opacity);
+        Assert.Null(DockAppearance.FromJson("""{"color": "purple"}""").Color);
+        Assert.Equal(DockAppearance.Default, DockAppearance.FromJson("not json"));
+    }
+
     private static string Labels(SettingsStore s) => string.Concat(s.GetItems(SettingsStore.MainDockId).Select(i => i.Label));
 
     public void Dispose()

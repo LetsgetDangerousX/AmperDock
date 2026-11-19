@@ -27,6 +27,14 @@ public readonly record struct Argb(uint Value)
         var a = h.Length >= 8 ? Convert.ToUInt32(h[6..8], 16) : 0xFF;
         return new Argb((a << 24) | rgb);
     }
+    public byte Alpha => (byte)(Value >> 24);
+
+    /// <summary>The same colour with its alpha multiplied by <paramref name="k"/> (0..1).</summary>
+    public Argb WithAlphaScaled(float k) => new(((uint)Math.Clamp(MathF.Round(Alpha * k), 0, 255) << 24) | (Value & 0xFFFFFF));
+
+    /// <summary>The same RGB with an absolute alpha (0..1).</summary>
+    public Argb WithAlpha(float a) => new(((uint)Math.Clamp(MathF.Round(a * 255), 0, 255) << 24) | (Value & 0xFFFFFF));
+
     internal Color4 ToColor4(float opacity = 1) => new(
         ((Value >> 16) & 0xFF) / 255f, ((Value >> 8) & 0xFF) / 255f, (Value & 0xFF) / 255f, ((Value >> 24) & 0xFF) / 255f * opacity);
 }
@@ -191,12 +199,14 @@ public sealed class DockRenderer : IDisposable
     private static void DrawBackground(ID2D1DeviceContext ctx, DockScene s, DockStyle style)
     {
         var b = s.Background;
+        if (style.Background.Alpha == 0 && style.Outline.Alpha == 0) return;   // invisible dock: icons only
         // soft shadow: a few expanding, fading rounded rects (a real blur effect comes with the effects work)
-        using (var shadow = ctx.CreateSolidColorBrush(style.Shadow.ToColor4()))
+        if (style.Shadow.Alpha > 0)
+        using (var shadow = ctx.CreateSolidColorBrush(style.Shadow.WithAlpha(1).ToColor4()))
         {
             for (var i = 1; i <= 4; i++)
             {
-                shadow.Opacity = 0.05f / i;
+                shadow.Opacity = 0.05f / i * (style.Shadow.Alpha / 255f);
                 var g = i * 3 * s.Scale;
                 ctx.FillRoundedRectangle(new RoundedRectangle(new RectangleF(b.X - g, b.Y - g + 4 * s.Scale, b.W + g * 2, b.H + g * 2), s.Radius + g, s.Radius + g), shadow);
             }
@@ -205,9 +215,10 @@ public sealed class DockRenderer : IDisposable
         using var fill = ctx.CreateSolidColorBrush(style.Background.ToColor4());
         using var outline = ctx.CreateSolidColorBrush(style.Outline.ToColor4());
         using var highlight = ctx.CreateSolidColorBrush(style.Highlight.ToColor4());
-        ctx.FillRoundedRectangle(rr, fill);
-        ctx.DrawRoundedRectangle(rr, outline, 1 * s.Scale);
+        if (style.Background.Alpha > 0) ctx.FillRoundedRectangle(rr, fill);
+        if (style.Outline.Alpha > 0) ctx.DrawRoundedRectangle(rr, outline, 1 * s.Scale);
         var inset = 1.5f * s.Scale;
+        if (style.Highlight.Alpha > 0)
         ctx.DrawLine(new Vector2(b.X + s.Radius, b.Y + inset), new Vector2(b.Right - s.Radius, b.Y + inset), highlight, 1 * s.Scale);
     }
 

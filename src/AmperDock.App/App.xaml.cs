@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using AmperDock.App.Dock;
 using AmperDock.App.Gallery;
+using AmperDock.App.Settings;
 using AmperDock.App.Theme;
 using AmperDock.Core;
 using AmperDock.Shell;
@@ -37,7 +38,8 @@ public partial class App : Application
         SeedOnFirstRun(_store);
 
         if (e.Args.Contains("--gallery")) OpenGallery();
-        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenGallery);
+        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenGallery, OpenAppearance);
+        if (e.Args.Contains("--appearance")) OpenAppearance(_dock);
     }
 
     /// <summary>A brand-new dock gets a couple of apps every Windows install has, so it isn't empty and confusing.</summary>
@@ -61,6 +63,15 @@ public partial class App : Application
         if (_gallery is { IsLoaded: true }) { _gallery.Activate(); return; }
         _gallery = new GalleryWindow(_theme!);
         _gallery.Show();
+    }
+
+    private AppearanceWindow? _appearance;
+
+    private void OpenAppearance(DockHost dock)
+    {
+        if (_appearance is { IsLoaded: true }) { _appearance.Activate(); return; }
+        _appearance = new AppearanceWindow(dock);
+        _appearance.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)

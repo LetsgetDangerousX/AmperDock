@@ -33,6 +33,8 @@ public sealed class DockHost : IDisposable
     private readonly ThemeManager _theme;
     private readonly string _containerId;
     private readonly Action _openGallery;
+    private readonly Action<DockHost> _openAppearance;
+    private DockAppearance _appearance;
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
     private readonly DispatcherTimer _taskTimer;
@@ -59,16 +61,18 @@ public sealed class DockHost : IDisposable
     private string? _toast;                    // short message shown in the label slot (errors, hints)
     private long _toastUntil;
 
-    public DockHost(SettingsStore store, ThemeManager theme, string containerId, Action openGallery)
+    public DockHost(SettingsStore store, ThemeManager theme, string containerId, Action openGallery, Action<DockHost> openAppearance)
     {
         _store = store;
         _theme = theme;
         _containerId = containerId;
         _openGallery = openGallery;
+        _openAppearance = openAppearance;
+        _appearance = store.GetAppearance(containerId);
         _baseMetrics = theme.DockMetrics();
         _m = _baseMetrics;
-        _style = theme.DockStyle();
-        theme.Changed += () => { _style = _theme.DockStyle(); Render(); };
+        _style = ComposeStyle();
+        theme.Changed += () => { _style = ComposeStyle(); Render(); };
 
         var inst = GetModuleHandle(0);
         if (s_proc is null)
@@ -105,6 +109,42 @@ public sealed class DockHost : IDisposable
         _taskTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => RefreshTasks(), Dispatcher.CurrentDispatcher);
         _taskTimer.Start();
         RefreshTasks();
+    }
+
+    // ------------------------------------------------------------------ appearance
+
+    public DockAppearance Appearance => _appearance;
+
+    /// <summary>Show an appearance on the live dock without saving it (the Appearance window's live preview).</summary>
+    public void PreviewAppearance(DockAppearance appearance)
+    {
+        _appearance = appearance.Normalised();
+        _style = ComposeStyle();
+        SetExpanded(_expanded);   // the region follows the band, which may now be a different shape
+        Render();
+    }
+
+    public void SaveAppearance(DockAppearance appearance)
+    {
+        PreviewAppearance(appearance);
+        _store.SetAppearance(_containerId, _appearance);
+    }
+
+    /// <summary>Theme colours plus the user's colour/opacity/outline choices.</summary>
+    private DockStyle ComposeStyle()
+    {
+        var t = _theme.DockStyle();
+        var a = _appearance;
+        var k = a.Opacity / 100f;
+        var fill = (a.Color is null ? t.Background : Argb.FromRgba(a.Color)).WithAlpha(k);
+        var outline = a.Outline && a.Opacity > 0 ? t.Outline.WithAlphaScaled(MathF.Min(1, k * 1.5f)) : new Argb(0);
+        return t with
+        {
+            Background = fill,
+            Outline = outline,
+            Highlight = t.Highlight.WithAlphaScaled(k),
+            Shadow = t.Shadow.WithAlphaScaled(k),
+        };
     }
 
     // ------------------------------------------------------------------ placement
@@ -268,7 +308,7 @@ public sealed class DockHost : IDisposable
             }
         }
 
-        _renderer.Draw(new DockScene(bg, _m.Radius, icons, indicators, label, _scale), _style);
+        _renderer.Draw(new DockScene(bg, _appearance.RadiusFor(bg.H), icons, indicators, label, _scale), _style);
         _lastBackground = bg;
     }
 
@@ -456,13 +496,14 @@ public sealed class DockHost : IDisposable
         var (rects, _) = CurrentRects();
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, Gallery = 10, Quit = 11;
+        const int Remove = 1, OpenLocation = 2, Appearance = 9, Gallery = 10, Quit = 11;
         if (hit >= 0)
         {
             AppendMenu(menu, MF_STRING, OpenLocation, "Open file location");
             AppendMenu(menu, MF_STRING, Remove, "Remove from dock");
             AppendMenu(menu, MF_SEPARATOR, 0, null);
         }
+        AppendMenu(menu, MF_STRING, Appearance, "Dock appearance…");
         AppendMenu(menu, MF_STRING, Gallery, "Component gallery…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, MF_STRING, Quit, "Quit AmperDock");
@@ -485,6 +526,9 @@ public sealed class DockHost : IDisposable
                 var t = _items[hit].Target;
                 if (t is not null && (File.Exists(t) || Directory.Exists(t)))
                     Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{t}\"") { UseShellExecute = true })?.Dispose();
+                break;
+            case Appearance:
+                _openAppearance(this);
                 break;
             case Gallery:
                 _openGallery();

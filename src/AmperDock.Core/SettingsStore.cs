@@ -67,6 +67,15 @@ public sealed class SettingsStore : IDisposable
         ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
         """, null, ("$k", key), ("$v", valueJson));
 
+    // ---------------------------------------------------------------- container appearance
+
+    public DockAppearance GetAppearance(string containerId) =>
+        DockAppearance.FromJson(Scalar("SELECT appearance_json FROM containers WHERE id = $id", null, ("$id", containerId)) as string);
+
+    public void SetAppearance(string containerId, DockAppearance appearance) =>
+        Exec("UPDATE containers SET appearance_json = $j WHERE id = $id", null,
+            ("$j", appearance.Normalised().ToJson()), ("$id", containerId));
+
     // ---------------------------------------------------------------- items
 
     public IReadOnlyList<DockItem> GetItems(string containerId)
