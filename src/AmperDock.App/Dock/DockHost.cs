@@ -42,11 +42,28 @@ public sealed class DockHost : IDisposable
     private readonly DockCommands _commands;
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
-    private readonly DispatcherTimer _taskTimer;
+    private readonly Action _onTasks;
+    private readonly Dictionary<string, (string? target, ItemKeys keys)> _keys = new();
     private readonly FrameClock _clock;
 
     private DockAppearance _appearance;
     private DockPlacement _placement;
+    private DockBehavior _behavior;
+
+    // auto-hide
+    private float _hide;                       // 0 = showing, 1 = tucked past the screen edge
+    private long _pointerLeftAt;               // when the pointer last left the dock or its previews
+    private const int HideDelayMs = 700;
+
+    // window previews
+    private PreviewWindow? _preview;
+    private readonly DispatcherTimer _previewTimer;
+    private string? _hoverItem, _previewKey;   // the running item under the pointer; what the previews show
+    private long _hoverSince, _previewLeftAt = -1;
+    private const int PreviewDelayMs = 800, PreviewGraceMs = 350;
+    private bool _menuOpen;                    // the right-click menu is up: no previews over it
+    private string? _previewMuted;             // right-clicked item: no previews until the pointer moves off it
+    private long _menuClosedAt;
     private DockFrame _frame;
     private RectF _work;                       // work area of the dock's monitor, screen px
     private string? _monitorKey;
@@ -83,6 +100,9 @@ public sealed class DockHost : IDisposable
         _commands = commands;
         _appearance = store.GetAppearance(containerId);
         _placement = store.GetPlacement(containerId);
+        _behavior = store.GetBehavior(containerId);
+        _pointerLeftAt = Environment.TickCount64;
+        _previewTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Normal, (_, _) => PreviewTick(), Dispatcher.CurrentDispatcher);
         _baseMetrics = theme.DockMetrics();
         _m = _baseMetrics;
         _style = ComposeStyle();
@@ -122,8 +142,8 @@ public sealed class DockHost : IDisposable
         Reload();
         ShowWindow(_hwnd, SW_SHOWNA);
 
-        _taskTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => RefreshTasks(), Dispatcher.CurrentDispatcher);
-        _taskTimer.Start();
+        _onTasks = RefreshTasks;
+        TaskWatcher.Shared.Changed += _onTasks;
         RefreshTasks();
     }
 
@@ -323,24 +343,29 @@ public sealed class DockHost : IDisposable
         Kick();
     }
 
+    /// <summary>Which items have open windows, and whether one of them is in front. Runs after every window change.</summary>
     private void RefreshTasks()
     {
-        var windows = Tasks.Snapshot(_hwnd);
-        var byExe = windows.Where(w => w.ExePath is not null)
-            .GroupBy(w => w.ExePath!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-        var running = new Dictionary<string, List<TaskWindow>>();
+        var watcher = TaskWatcher.Shared;
+        var keys = new List<TaskMatch.ItemKey>(_items.Count);
         foreach (var item in _items)
         {
-            var exe = Shortcuts.ExeFor(item);
-            if (exe is not null && byExe.TryGetValue(exe, out var list)) running[item.Id] = list;
+            // working out a shortcut's program means reading the .lnk: do it once per target, not per window event
+            if (!_keys.TryGetValue(item.Id, out var k) || k.target != item.Target)
+                _keys[item.Id] = k = (item.Target, AppIds.KeysFor(item.Target));
+            keys.Add(new TaskMatch.ItemKey(item.Id, k.keys.AppId, k.keys.Exe));
         }
-        var fg = Native.GetForegroundWindow();
+        var (running, _) = TaskMatch.Assign(keys, watcher.Windows, w => w.AppId, w => w.ExePath);
+        var fg = watcher.Foreground;
         var changed = fg != _foreground || running.Count != _running.Count
-                      || running.Any(kv => !_running.TryGetValue(kv.Key, out var old) || old.Count != kv.Value.Count);
+                      || running.Any(kv => !_running.TryGetValue(kv.Key, out var old) || !old.SequenceEqual(kv.Value));
         _running = running;
         _foreground = fg;
-        if (changed) Render();
+        if (changed)
+        {
+            RefreshPreview();
+            Render();
+        }
     }
 
     /// <summary>Fetch every item's icon again (after a folder's icon was changed, for example).</summary>
@@ -386,10 +411,19 @@ public sealed class DockHost : IDisposable
         var moving = DockLayout.Approach(current, targets, dt);
         for (var i = 0; i < order.Count; i++) _size[order[i].Id] = current[i];
 
+        var hideGoal = HideGoal(out var hidePending);
+        if (_hide != hideGoal)
+        {
+            var step = dt / 0.22f;   // a little under a quarter of a second, either way
+            _hide = MathF.Abs(hideGoal - _hide) <= step ? hideGoal : _hide + MathF.Sign(hideGoal - _hide) * step;
+            ApplyHideOffset();
+            moving = true;
+        }
+
         Render();
 
         var toastLive = _toast is not null && Environment.TickCount64 < _toastUntil;
-        if (!moving && !_dragging && !_movingDock && _pointerX is null && !toastLive)
+        if (!moving && !_dragging && !_movingDock && _pointerX is null && !toastLive && !hidePending)
         {
             _clock.Stop();
             _animating = false;
@@ -397,6 +431,134 @@ public sealed class DockHost : IDisposable
             SetExpanded(false);
             Render();
         }
+    }
+
+    // ------------------------------------------------------------------ auto-hide
+
+    private bool AutoHides => _behavior.AutoHide && _placement.Edge != DockEdge.Float;
+
+    /// <summary>
+    /// Where the hide animation is heading: 1 (tucked away) once the pointer has been gone for a moment
+    /// and nothing needs the dock (a drag, a press, previews, a message, an empty dock's hint), else 0.
+    /// <paramref name="pending"/> keeps the frame loop alive through the delay.
+    /// </summary>
+    private float HideGoal(out bool pending)
+    {
+        pending = false;
+        if (!AutoHides) return 0;
+        var away = _pointerX is null && !_dragging && !_movingDock && !_pressed && _preview?.ItemId is null && _items.Count > 0
+                   && !(_toast is not null && Environment.TickCount64 < _toastUntil);
+        if (!away) return 0;
+        pending = _hide < 1;
+        return Environment.TickCount64 - _pointerLeftAt < HideDelayMs ? 0 : 1;
+    }
+
+    /// <summary>Slide the finished picture toward the screen edge (composition only, no redraw).</summary>
+    private void ApplyHideOffset()
+    {
+        var e = _hide * _hide * (3 - 2 * _hide);   // ease in and out
+        var ext = _lastExtent.W > 0 ? _lastExtent : _lastBackground;
+        var d = (_frame.Thickness - ext.Y + 2 * _scale) * e;   // the band and its decorations, all the way past the edge
+        var (x, y) = _frame.Edge switch
+        {
+            DockEdge.Top => (0f, -d),
+            DockEdge.Left => (-d, 0f),
+            DockEdge.Right => (d, 0f),
+            _ => (0f, d),
+        };
+        _renderer.SetOffset(x, y);
+    }
+
+    private void SetBehavior(DockBehavior b)
+    {
+        _behavior = b;
+        _store.SetBehavior(_containerId, b);
+        if (!b.Previews) HidePreview();
+        _pointerLeftAt = Environment.TickCount64;
+        Kick();
+    }
+
+    // ------------------------------------------------------------------ window previews
+
+    /// <summary>The item under the pointer, if it has open windows.</summary>
+    private string? RunningItemUnderPointer()
+    {
+        if (_pointerX is not float x || _pointerY is not float y || _dragging || _pressed || _movingDock) return null;
+        var (rects, _) = CurrentRects();
+        var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
+        return hit >= 0 && _running.ContainsKey(_items[hit].Id) ? _items[hit].Id : null;
+    }
+
+    private void TrackHover()
+    {
+        var id = _behavior.Previews ? RunningItemUnderPointer() : null;
+        if (id != _hoverItem) { _hoverItem = id; _hoverSince = Environment.TickCount64; }
+        if (id is not null && id != _previewMuted) _previewMuted = null;   // moved to another icon: previews are back
+        if (_hoverItem is not null || _preview?.ItemId is not null) _previewTimer.Start();
+    }
+
+    /// <summary>
+    /// Every 80 ms while previews are possible: show them after the pointer rests on a running icon,
+    /// switch at once when it moves to another, and hide them shortly after it leaves both the icon
+    /// and the previews (the short grace lets it cross the gap between them).
+    /// </summary>
+    private void PreviewTick()
+    {
+        var now = Environment.TickCount64;
+        var showing = _preview?.ItemId;
+        if (_menuOpen || (_hoverItem is not null && _hoverItem == _previewMuted))
+        {
+            HidePreview();
+            return;
+        }
+        if (_hoverItem is { } id && _running.TryGetValue(id, out var wins) && !_dragging && !_pressed)
+        {
+            _previewLeftAt = -1;
+            if (showing != id && (showing is not null || now - _hoverSince >= PreviewDelayMs)) ShowPreview(id, wins);
+            return;
+        }
+        if (showing is null) { _previewTimer.Stop(); return; }
+        GetCursorPos(out var p);
+        if (_preview!.Contains(p.X, p.Y)) { _previewLeftAt = -1; return; }
+        if (_previewLeftAt < 0) _previewLeftAt = now;
+        else if (now - _previewLeftAt >= PreviewGraceMs) HidePreview();
+    }
+
+    private void ShowPreview(string id, List<TaskWindow> wins)
+    {
+        var i = _items.FindIndex(x => x.Id == id);
+        if (i < 0) return;
+        var (rects, _) = CurrentRects();
+        var r = _frame.ToWindow(rects[i]);
+        if (_preview is null)
+        {
+            _preview = new PreviewWindow();
+            _preview.Acted += () => TaskWatcher.Shared.Refresh();
+        }
+        _previewKey = PreviewKey(wins);
+        _preview.ShowFor(id, wins, _foreground, new System.Windows.Rect(_winX + r.X, _winY + r.Y, r.W, r.H),
+            new System.Windows.Rect(_work.X, _work.Y, _work.W, _work.H), _scale, _placement.Edge);
+        _previewLeftAt = -1;
+        Render();   // the name label gives way to the previews
+    }
+
+    private string PreviewKey(List<TaskWindow> wins) => string.Join(",", wins.Select(w => w.Hwnd)) + "|" + _foreground;
+
+    /// <summary>After a window change: rebuild open previews if that app's windows changed, or hide them when it has none.</summary>
+    private void RefreshPreview()
+    {
+        if (_preview?.ItemId is not { } id) return;
+        if (!_running.TryGetValue(id, out var wins)) { HidePreview(); return; }
+        if (PreviewKey(wins) != _previewKey) ShowPreview(id, wins);
+    }
+
+    private void HidePreview()
+    {
+        if (_preview?.ItemId is null) return;
+        _preview.HideNow();
+        _previewLeftAt = -1;
+        _pointerLeftAt = Environment.TickCount64;   // an auto-hiding dock waits a moment before tucking away
+        Kick();
     }
 
     /// <summary>Items in display order. While dragging, the dragged item sits at the slot under the cursor.</summary>
@@ -476,7 +638,7 @@ public sealed class DockHost : IDisposable
         else if (!_dragging && !_movingDock && _pointerX is float hx && _pointerY is float hy)
         {
             var hit = DockLayout.HitTest(rects, hx, hy, _m.Spacing / 2);
-            if (hit >= 0)
+            if (hit >= 0 && order[hit].Id != _preview?.ItemId)
             {
                 var item = order[hit];
                 var text = _running.TryGetValue(item.Id, out var w) && w.Count > 1 ? $"{item.Label} · {w.Count} windows" : item.Label;
@@ -543,6 +705,12 @@ public sealed class DockHost : IDisposable
         RectF r;
         if (expanded)
             r = new RectF(0, 0, _frame.Length, t);
+        else if (AutoHides && _hide >= 1)
+        {
+            var e = _lastExtent.W > 0 ? _lastExtent : bg;
+            var strip = MathF.Max(2, MathF.Round(2 * _scale));   // touch the edge here to bring the dock back
+            r = new RectF(e.X, t - strip, e.W, strip);
+        }
         else if (_items.Count == 0 && _frame.Vertical)   // keep the empty-dock hint visible: beside a side dock...
             r = new RectF(bg.X - 2, 0, bg.W + 4, t);
         else if (_items.Count == 0)                        // ...above a horizontal one
@@ -609,6 +777,8 @@ public sealed class DockHost : IDisposable
                     _tracking = TrackMouseEvent(ref tme);
                 }
                 if (_movingDock) { MoveDockToCursor(save: false); return 0; }
+                // back on the dock after really leaving it (not just the menu taking the pointer): previews are back
+                if (_pointerX is null && Environment.TickCount64 - Math.Max(_pointerLeftAt, _menuClosedAt) > 400) _previewMuted = null;
                 var (x, y) = DockPoint(l);
                 _pointerX = x;
                 _pointerY = y;
@@ -616,15 +786,22 @@ public sealed class DockHost : IDisposable
                 if (_pressed && past && !_dragging)
                 {
                     if (_pressOnEmpty) StartMovingDock();
-                    else if (_pressIndex >= 0) _dragging = true;
+                    else if (_pressIndex >= 0) { _dragging = true; HidePreview(); }
                 }
+                TrackHover();
                 Kick();
                 return 0;
             }
 
             case WM_MOUSELEAVE:
                 _tracking = false;
-                if (GetCapture() != _hwnd) { _pointerX = _pointerY = null; Kick(); }
+                if (GetCapture() != _hwnd)
+                {
+                    _pointerX = _pointerY = null;
+                    _pointerLeftAt = Environment.TickCount64;
+                    TrackHover();
+                    Kick();
+                }
                 return 0;
 
             case WM_LBUTTONDOWN:
@@ -636,6 +813,7 @@ public sealed class DockHost : IDisposable
                 _pressX = x;
                 _pressY = y;
                 _pressed = true;
+                HidePreview();
                 SetCapture(_hwnd);
                 return 0;
             }
@@ -663,8 +841,14 @@ public sealed class DockHost : IDisposable
                 }
                 return 0;
 
+            case WM_RBUTTONDOWN:
+                _previewMuted = _hoverItem;
+                HidePreview();
+                return 0;
+
             case WM_RBUTTONUP:
             {
+                _previewMuted = _hoverItem;
                 var (x, y) = DockPoint(l);
                 ShowMenu(x, y);
                 return 0;
@@ -755,7 +939,7 @@ public sealed class DockHost : IDisposable
         if (!forceNew && _running.TryGetValue(item.Id, out var windows) && windows.Count > 0)
         {
             Tasks.Activate(windows);
-            RefreshTasks();
+            TaskWatcher.Shared.Refresh();
             return;
         }
         var error = Tasks.Launch(item, forceNew);
@@ -787,11 +971,12 @@ public sealed class DockHost : IDisposable
 
     private void ShowMenu(float x, float y)
     {
+        HidePreview();
         var (rects, _) = CurrentRects();
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         if (hit >= 0)
         {
@@ -800,7 +985,8 @@ public sealed class DockHost : IDisposable
             AppendMenu(menu, MF_STRING, Remove, "&Remove from dock");
             AppendMenu(menu, MF_SEPARATOR, 0, null);
         }
-        AppendMenu(menu, MF_STRING, AddApp, "&Add an app or file…");
+        AppendMenu(menu, MF_STRING, AddApp, "&Add an app…");
+        AppendMenu(menu, MF_STRING, AddFile, "Add a f&ile…");
         AppendMenu(menu, MF_STRING, AddFolder, "Add a &folder…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
 
@@ -813,6 +999,9 @@ public sealed class DockHost : IDisposable
         AppendMenu(position, MF_SEPARATOR, 0, null);
         AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
         AppendMenu(menu, MF_POPUP, position, "&Position");
+        AppendMenu(menu, _placement.Edge == DockEdge.Float ? MF_STRING | MF_GRAYED : MF_STRING | (_behavior.AutoHide ? MF_CHECKED : 0),
+            AutoHide, "Auto-&hide");
+        AppendMenu(menu, MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
         AppendMenu(menu, MF_STRING, Appearance, "Dock appearan&ce…");
         AppendMenu(menu, MF_STRING, NewDock, "&New dock");
         if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, "Remove &this dock…");
@@ -824,7 +1013,10 @@ public sealed class DockHost : IDisposable
         var pt = new POINT { X = (int)wx, Y = (int)wy };
         ClientToScreen(_hwnd, ref pt);
         SetForegroundWindow(_hwnd);   // required so the menu closes when you click elsewhere
-        var cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, 0);
+        _menuOpen = true;             // the menu runs its own message loop; the preview timer still ticks inside it
+        int cmd;
+        try { cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, 0); }
+        finally { _menuOpen = false; _menuClosedAt = Environment.TickCount64; }
         DestroyMenu(menu);            // also destroys the submenu
 
         switch (cmd)
@@ -844,6 +1036,9 @@ public sealed class DockHost : IDisposable
                 EditItem(_items[hit]);
                 break;
             case AddApp:
+                AddFromAppList(after: hit);
+                break;
+            case AddFile:
                 AddFromPicker(folder: false, after: hit);
                 break;
             case AddFolder:
@@ -860,6 +1055,14 @@ public sealed class DockHost : IDisposable
                 break;
             case Appearance:
                 _commands.OpenAppearance(this);
+                break;
+            case AutoHide:
+                SetBehavior(_behavior with { AutoHide = !_behavior.AutoHide });
+                Toast(_behavior.AutoHide ? "Auto-hide is on: touch the screen edge to bring the dock back." : "Auto-hide is off.");
+                break;
+            case Previews:
+                SetBehavior(_behavior with { Previews = !_behavior.Previews });
+                Toast(_behavior.Previews ? "Rest the pointer on an open app to see its windows." : "Window previews are off.");
                 break;
             case NewDock:
                 _commands.NewDock(this);
@@ -895,8 +1098,25 @@ public sealed class DockHost : IDisposable
         win.Activate();
     }
 
+    private Settings.AppPickerWindow? _appPicker;
+
+    /// <summary>"&Add an app…": the Start menu's app list, Store apps included.</summary>
+    private void AddFromAppList(int after)
+    {
+        if (_appPicker is not null) { _appPicker.Activate(); return; }
+        var targets = _items.Where(i => i.Target is not null).Select(i => i.Target!);
+        _appPicker = new Settings.AppPickerWindow(targets,
+            apps => AddItems(apps.Select(a => new NewItem(Shortcuts.TypeFor(a.Target), a.Name, a.Target,
+                StartIn: a.Target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(a.Target) : null)).ToList(),
+                Math.Min(after >= 0 ? after + 1 : _items.Count, _items.Count)),
+            () => AddFromPicker(folder: false, after: after));
+        _appPicker.Closed += (_, _) => _appPicker = null;
+        _appPicker.Show();
+        _appPicker.Activate();
+    }
+
     /// <summary>
-    /// "&Add an app or file…" / "Add a &folder…": the standard Windows pickers. New items go after the
+    /// "Add a f&ile…" / "Add a &folder…": the standard Windows pickers. New items go after the
     /// item you right-clicked, or at the end of the dock.
     /// </summary>
     private void AddFromPicker(bool folder, int after)
@@ -925,11 +1145,13 @@ public sealed class DockHost : IDisposable
     }
 
     /// <summary>Shared by drag-and-drop and the pickers: skip duplicates, insert, refresh.</summary>
-    private void AddPaths(IReadOnlyList<string> paths, int index)
+    private void AddPaths(IReadOnlyList<string> paths, int index) => AddItems(paths.Select(Shortcuts.FromDroppedPath).ToList(), index);
+
+    private void AddItems(IReadOnlyList<NewItem> items, int index)
     {
         var already = _items.Where(i => i.Target is not null).Select(i => i.Target!).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var fresh = paths.Where(p => !already.Contains(p)).Select(Shortcuts.FromDroppedPath).ToList();
-        if (fresh.Count == 0) { Toast(paths.Count == 1 ? "That's already on the dock." : "Those are already on the dock."); return; }
+        var fresh = items.Where(n => n.Target is null || !already.Contains(n.Target)).ToList();
+        if (fresh.Count == 0) { Toast(items.Count == 1 ? "That's already on the dock." : "Those are already on the dock."); return; }
         _store.InsertItems(_containerId, index, fresh);
         Reload();
         Toast(fresh.Count == 1 ? $"Added {fresh[0].Label}" : $"Added {fresh.Count} items");
@@ -953,7 +1175,9 @@ public sealed class DockHost : IDisposable
 
     public void Dispose()
     {
-        _taskTimer.Stop();
+        TaskWatcher.Shared.Changed -= _onTasks;
+        _previewTimer.Stop();
+        _preview?.Close();
         _clock.Dispose();
         s_hosts.Remove(_hwnd);
         _renderer.Dispose();

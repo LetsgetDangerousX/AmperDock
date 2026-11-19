@@ -72,6 +72,12 @@ public sealed class SettingsStore : IDisposable
     public DockAppearance GetAppearance(string containerId) =>
         DockAppearance.FromJson(Scalar("SELECT appearance_json FROM containers WHERE id = $id", null, ("$id", containerId)) as string);
 
+    public DockBehavior GetBehavior(string containerId) =>
+        DockBehavior.FromJson(Scalar("SELECT behavior_json FROM containers WHERE id = $id", null, ("$id", containerId)) as string);
+
+    public void SetBehavior(string containerId, DockBehavior behavior) =>
+        Exec("UPDATE containers SET behavior_json = $j WHERE id = $id", null, ("$j", behavior.ToJson()), ("$id", containerId));
+
     public void SetAppearance(string containerId, DockAppearance appearance) =>
         Exec("UPDATE containers SET appearance_json = $j WHERE id = $id", null,
             ("$j", appearance.Normalised().ToJson()), ("$id", containerId));

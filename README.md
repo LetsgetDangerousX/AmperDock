@@ -13,10 +13,12 @@ Needs the .NET 10 SDK (`winget install Microsoft.DotNet.SDK.10`).
 dotnet run --project src/AmperDock.App
 ```
 
-- Right-click the dock to add apps or folders, change its position or appearance, or **Quit AmperDock**. You can also drag apps, files and folders from Explorer onto the dock.
+- Right-click the dock to add apps (**Add an app…** lists everything in Start, Store apps included), files or folders, change its position or appearance, turn on **Auto-hide** or **Window previews**, or **Quit AmperDock**. You can also drag apps, files and folders from Explorer onto the dock.
+- Rest the pointer on an open app to see live previews of its windows: click one to switch to it, or use its ✕ to close it.
 - Move the dock by dragging an empty part of it (or Alt+drag anywhere on it): drop it near any screen edge to dock it there, or anywhere else to float.
 - Settings live in `%APPDATA%\AmperDock\amperdock.db`. Use `--db <path>` to try it with a throwaway database.
 - `--gallery` opens the developer component gallery (a test page for the UI building blocks, not settings).
+- `--selftest-tasks report.txt` writes what the dock sees: open windows with their program and app id, each item's match, and the app list.
 - Set `AMPERDOCK_TRACE=1` to write a trace log to `%LOCALAPPDATA%\AmperDock\logs\`.
 
 ## Look packs (cursors, trails, folder icons)

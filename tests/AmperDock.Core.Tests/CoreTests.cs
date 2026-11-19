@@ -265,6 +265,56 @@ public sealed class ItemAndDockTests : IDisposable
     public void IconRef_blank_is_none() => Assert.Null(IconRef.Parse("  "));
 }
 
+public class TaskMatchTests
+{
+    private sealed record W(string Name, string? AppId, string? Exe);
+
+    private static Dictionary<string, string[]> Run(TaskMatch.ItemKey[] items, W[] windows, out string[] left)
+    {
+        var (byItem, rest) = TaskMatch.Assign(items, windows, w => w.AppId, w => w.Exe);
+        left = rest.Select(w => w.Name).ToArray();
+        return byItem.ToDictionary(kv => kv.Key, kv => kv.Value.Select(w => w.Name).ToArray());
+    }
+
+    [Fact]
+    public void Store_app_matches_by_app_id()
+    {
+        var r = Run([new("calc", "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App", null)],
+            [new("calc window", "microsoft.windowscalculator_8wekyb3d8bbwe!app", @"C:\Program Files\WindowsApps\x\CalculatorApp.exe")], out var left);
+        Assert.Equal(["calc window"], r["calc"]);
+        Assert.Empty(left);
+    }
+
+    [Fact]
+    public void Pinned_web_app_takes_its_windows_and_the_browser_keeps_the_rest()
+    {
+        const string chrome = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        var r = Run([new("chrome", null, chrome), new("music", "Chrome._crx_music", chrome)],
+            [new("browser", "Chrome", chrome), new("music app", "Chrome._crx_music", chrome), new("mail app", "Chrome._crx_mail", chrome)], out _);
+        Assert.Equal(["browser", "mail app"], r["chrome"]);   // an unpinned web app falls back to its browser
+        Assert.Equal(["music app"], r["music"]);
+    }
+
+    [Fact]
+    public void Inbox_notepad_matches_the_store_notepad_window_but_desktop_namesakes_do_not()
+    {
+        var r = Run([new("notepad", null, @"C:\Windows\System32\notepad.exe")],
+            [new("store notepad", "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App", @"C:\Program Files\WindowsApps\Microsoft.WindowsNotepad_11\Notepad\Notepad.exe"),
+             new("other notepad", null, @"D:\tools\notepad.exe")], out var left);
+        Assert.Equal(["store notepad"], r["notepad"]);
+        Assert.Equal(["other notepad"], left);
+    }
+
+    [Fact]
+    public void Unknown_windows_are_leftovers()
+    {
+        var r = Run([new("notepad", null, @"C:\Windows\notepad.exe")],
+            [new("n", null, @"c:\windows\NOTEPAD.EXE"), new("x", null, @"C:\x.exe"), new("elevated", null, null)], out var left);
+        Assert.Equal(["n"], r["notepad"]);
+        Assert.Equal(["x", "elevated"], left);
+    }
+}
+
 public class ThemeFieldTests
 {
     [Fact]

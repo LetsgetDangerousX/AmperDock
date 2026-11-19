@@ -57,6 +57,7 @@ public static class Shortcuts
     public static string TypeFor(string target)
     {
         var t = target.Trim().Trim('"');
+        if (t.StartsWith(AppIds.AppsFolderPrefix, StringComparison.OrdinalIgnoreCase)) return ItemTypes.Program;   // an app from Start → All apps
         if (Directory.Exists(t) || (t.Length is 2 or 3 && t[1] == ':')) return ItemTypes.Folder;
         if (t.Contains("://", StringComparison.Ordinal)) return ItemTypes.Url;
         return Path.GetExtension(t).ToLowerInvariant() switch

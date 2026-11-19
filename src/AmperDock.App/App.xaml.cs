@@ -49,6 +49,26 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        if (e.Args.SkipWhile(x => x != "--selftest-tasks").Skip(1).FirstOrDefault() is { } taskReport)
+        {
+            // what the dock sees: open windows with their program and app id, items' keys, and the matches
+            var sb = new System.Text.StringBuilder();
+            var windows = Shell.Tasks.Snapshot();
+            foreach (var w in windows) sb.AppendLine($"window {w.Hwnd:X} pid={w.Pid} exe={w.ExePath} appid={w.AppId}");
+            var items = _store.GetDocks().SelectMany(d => _store.GetItems(d.Id)).ToList();
+            var keys = items.Select(i => (i, k: Shell.AppIds.KeysFor(i.Target))).ToList();
+            foreach (var (i, k) in keys) sb.AppendLine($"item {i.Label} target={i.Target} appid={k.AppId} exe={k.Exe}");
+            var (byItem, left) = Core.TaskMatch.Assign(keys.Select(x => new Core.TaskMatch.ItemKey(x.i.Id, x.k.AppId, x.k.Exe)).ToList(),
+                windows, w => w.AppId, w => w.ExePath);
+            foreach (var (i, _) in keys) sb.AppendLine($"running {i.Label}: {(byItem.TryGetValue(i.Id, out var ws) ? ws.Count : 0)}");
+            sb.AppendLine($"unmatched windows: {left.Count}");
+            var apps = Shell.AppIds.InstalledApps();
+            sb.AppendLine($"installed apps: {apps.Count}");
+            foreach (var a in apps.Take(400)) sb.AppendLine($"app {a.Name} | {a.AppId} | {a.Target}");
+            File.WriteAllText(taskReport, sb.ToString());
+            Shutdown();
+            return;
+        }
         foreach (var d in _store.GetDocks().Where(d => d.Enabled)) StartDock(d.Id);
         _looks.Changed += () => { foreach (var d in _docks) d.RefreshIcons(); };   // folder items pick up new folder icons
         _looks.Start();

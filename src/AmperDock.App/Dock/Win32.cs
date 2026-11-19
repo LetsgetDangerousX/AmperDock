@@ -9,7 +9,7 @@ internal static partial class Win32
     public const int WS_EX_TOPMOST = 0x8, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
     public const int SW_SHOWNA = 8;
     public const uint WM_DESTROY = 0x2, WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202,
-        WM_RBUTTONUP = 0x205, WM_MBUTTONUP = 0x208, WM_MOUSELEAVE = 0x2A3, WM_CAPTURECHANGED = 0x215,
+        WM_RBUTTONDOWN = 0x204, WM_RBUTTONUP = 0x205, WM_MBUTTONUP = 0x208, WM_MOUSELEAVE = 0x2A3, WM_CAPTURECHANGED = 0x215,
         WM_DPICHANGED = 0x2E0, WM_DISPLAYCHANGE = 0x7E, WM_SETTINGCHANGE = 0x1A, WM_DROPFILES = 0x233,
         WM_MOUSEACTIVATE = 0x21, WM_NCHITTEST = 0x84;
     public const int MA_NOACTIVATE = 3;
@@ -57,6 +57,7 @@ internal static partial class Win32
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool ReleaseCapture();
     [LibraryImport("user32.dll")] public static partial nint GetCapture();
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool GetCursorPos(out POINT p);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool GetWindowRect(nint hwnd, out RECT r);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool ScreenToClient(nint hwnd, ref POINT p);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool ClientToScreen(nint hwnd, ref POINT p);
     [LibraryImport("user32.dll")] public static partial int SetWindowRgn(nint hwnd, nint rgn, [MarshalAs(UnmanagedType.Bool)] bool redraw);

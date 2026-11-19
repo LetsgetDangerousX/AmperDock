@@ -150,6 +150,8 @@ public sealed class DockRenderer : IDisposable
         _dcomp.CreateTargetForHwnd(_hwnd, true, out _dcompTarget).CheckError();
         _dcomp.CreateVisual(out _visual).CheckError();
         _visual!.SetContent(_swap);
+        _visual.SetOffsetX(_offsetX);
+        _visual.SetOffsetY(_offsetY);
         _dcompTarget!.SetRoot(_visual);
         _dcomp.Commit();
 
@@ -166,6 +168,22 @@ public sealed class DockRenderer : IDisposable
             new PixelFormat(Format.B8G8R8A8_UNorm, Vortice.DCommon.AlphaMode.Premultiplied), 96, 96,
             BitmapOptions.Target | BitmapOptions.CannotDraw));
         _ctx.Target = _target;
+    }
+
+    private float _offsetX, _offsetY;
+
+    /// <summary>
+    /// Slide everything drawn by (x, y) pixels (auto-hide). DirectComposition moves the finished picture,
+    /// so sliding costs no redraw; whatever leaves the window is simply clipped.
+    /// </summary>
+    public void SetOffset(float x, float y)
+    {
+        if (x == _offsetX && y == _offsetY) return;
+        (_offsetX, _offsetY) = (x, y);
+        if (_visual is null || _dcomp is null) return;
+        _visual.SetOffsetX(x);
+        _visual.SetOffsetY(y);
+        _dcomp.Commit();
     }
 
     public void Resize(int width, int height)
