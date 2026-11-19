@@ -15,7 +15,15 @@ internal static partial class Win32
     public const int MA_NOACTIVATE = 3;
     public const uint TME_LEAVE = 2;
     public const uint TPM_RETURNCMD = 0x100, TPM_BOTTOMALIGN = 0x20, TPM_RIGHTBUTTON = 0x2, MF_STRING = 0, MF_SEPARATOR = 0x800, MF_GRAYED = 1;
-    public const uint SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4;
+    public const uint SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_NOMOVE = 0x2, SWP_NOSIZE = 0x1;
+    public const uint WM_WINDOWPOSCHANGING = 0x46;
+    public static readonly nint HWND_BOTTOM = 1, HWND_NOTOPMOST = -2;
+    public const int GWLP_HWNDPARENT = -8;
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPOS { public nint hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] public static partial nint SetWindowLongPtr(nint hwnd, int index, nint value);
+    [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16)] public static partial nint FindWindow(string? cls, string? title);
+    [LibraryImport("shell32.dll")] public static partial void SHChangeNotify(int eventId, uint flags, nint item1, nint item2);
     public const uint MONITOR_DEFAULTTOPRIMARY = 1;
 
     public delegate nint WndProc(nint hwnd, uint msg, nint wParam, nint lParam);

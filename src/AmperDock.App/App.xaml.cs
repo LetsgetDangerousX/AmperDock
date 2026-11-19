@@ -108,7 +108,7 @@ public partial class App : Application
 
     private void StartDock(string id)
     {
-        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock))); }
+        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, NewShelf))); }
         catch (Exception ex) { Log(ex); }
     }
 
@@ -140,14 +140,32 @@ public partial class App : Application
         StartDock(id);
     }
 
+    /// <summary>
+    /// "New desktop shelf": a dock that sits on the desktop under your windows, floating near the top of
+    /// the screen. Desktop icons dropped on it are tidied off the desktop (hidden, never moved).
+    /// </summary>
+    private void NewShelf(DockHost from)
+    {
+        var work = from.WorkArea;
+        var placement = new DockPlacement(DockEdge.Float, from.Placement.MonitorKey, 0.5f, (int)(work.X + work.W / 2), (int)(work.Y + work.H * 0.18f));
+        var shelves = _docks.Count(d => d.IsShelf);
+        var id = _store!.CreateDock(shelves == 0 ? "Desktop shelf" : $"Desktop shelf {shelves + 1}", placement, from.Appearance);
+        _store.SetBehavior(id, new DockBehavior { DesktopShelf = true });
+        StartDock(id);
+    }
+
     private void RemoveDock(DockHost dock)
     {
         if (dock.IsMain) return;
         var name = _store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name ?? "this dock";
         var what = dock.ItemCount switch { 0 => "", 1 => " and the 1 item on it", var c => $" and the {c} items on it" };
-        var answer = MessageBox.Show($"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}Only the dock goes. Your apps, files and folders aren't touched.",
-            "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        var detail = dock.IsShelf
+            ? "Anything it tidied away goes back on your desktop. Nothing is deleted."
+            : "Only the dock goes. Your apps, files and folders aren't touched.";
+        var answer = MessageBox.Show($"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}{detail}",
+            dock.IsShelf ? "Remove shelf" : "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
         if (answer != MessageBoxResult.OK) return;
+        dock.PutEverythingBack();
         if (_appearanceWindows.TryGetValue(dock.ContainerId, out var win)) win.Close();
         _docks.Remove(dock);
         dock.Dispose();

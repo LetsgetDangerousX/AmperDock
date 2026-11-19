@@ -22,6 +22,14 @@ Appearance window; the person can still change any colour afterwards. Decoration
   behind   bool                drawn under the dock, so it peeks out from behind
   upright  bool                stays upright on side docks (else turns with the dock)
   mirror   bool                flipped left-right
+Attachments are shapes that grow out of the dock itself, painted like it and sharing its outline:
+  kind     "cup" | "ring" | "moon"
+  from     "start" | "end"
+  along    band heights        where its centre is, from that end (cup and ring)
+  size     band heights        its radius (the planet's, for a ring)
+  sprite   the planet (cup, ring) or the face (moon)
+  color    the moon's paint
+room_start / room_end (band heights) lengthen the dock at that end so attachments don't cover icons.
 All art is original, (c) Ampersite LLC.
 """
 import json
@@ -36,13 +44,23 @@ from build_lookpacks import ASSETS, render  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "src" / "AmperDock.App" / "DockThemes"
 
-DECOR = ["dock-shrooms", "dock-holly", "dock-pumpkin", "dock-bat", "dock-acorn", "dock-sakura"]
-INDICATORS = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart"]
+DECOR = ["dock-shrooms", "dock-holly", "dock-pumpkin", "dock-bat", "dock-acorn", "dock-sakura",
+         "planet-ball", "planet-earthy", "planet-sunny", "moon-face", "ind-twinkle"]
+# toned copies: the same art pulled toward a dock's colours, so it reads as part of that dock
+TONED = {
+    "planet-moon.dusk": ("planet-moon", "saturate(.75) hue-rotate(-18deg) brightness(.82) contrast(.95)"),
+    "planet-rosy.dusk": ("planet-rosy", "saturate(.7) hue-rotate(-28deg) brightness(.8) contrast(.95)"),
+}
+INDICATORS = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart", "planet", "moon", "twinkle"]
 
 
 def D(sprite, frm, offset, edge, anchor, size, behind=False, upright=True, mirror=False, dy=0.0):
     return dict(sprite=sprite, **{"from": frm}, offset=offset, edge=edge, dy=dy, anchor=anchor, size=size,
                 behind=behind, upright=upright, mirror=mirror)
+
+
+def A(kind, frm, along, size, sprite=None, color=None):
+    return dict(kind=kind, **{"from": frm}, along=along, size=size, sprite=sprite, color=color)
 
 
 THEMES = [
@@ -78,6 +96,26 @@ THEMES = [
          look=dict(style="gradient", color="#FFE3EE", color2="#FFC6DD", gradient_angle=90, opacity=92, outline=True,
                    outline_color="#F4A6C8", outline_width=1.5, roundness=0.5, indicator="petal"),
          ears=False, snow=False, decor=[D("dock-sakura", "start", 0.12, "top", [0.2, 0.8], 0.85, upright=False, dy=0.22)]),
+    dict(id="starlight", name="Starlight", season=None, blurb="A night-sky dock that is a planet's ring, with little planets rising behind.",
+         look=dict(style="gradient", color="#2B2150", color2="#55387F", gradient_angle=0, opacity=96, outline=True,
+                   outline_color="#9C86E6", outline_width=1.5, roundness=0.5, indicator="planet"),
+         ears=False, snow=False, room_start=1.75,
+         attach=[A("ring", "start", 1.12, 0.55, "planet-ball")],
+         decor=[D("planet-moon.dusk", "end", 1.55, "top", [0.5, 0.6], 0.62, behind=True),
+                D("planet-rosy.dusk", "end", 0.7, "top", [0.5, 0.64], 0.5, behind=True)]),
+    dict(id="moonbeam", name="Moonbeam", season=None, blurb="Deep blue, and the end of the dock is a sleepy crescent moon.",
+         look=dict(style="gradient", color="#1F2A5A", color2="#36468A", gradient_angle=0, opacity=96, outline=True,
+                   outline_color="#8FA2E6", outline_width=1.5, roundness=0.5, indicator="moon"),
+         ears=False, snow=False, room_end=0.5,
+         attach=[A("moon", "end", 0, 0.56, "moon-face", "#FFE9A8")],
+         decor=[D("ind-twinkle", "start", 0.45, "top", [0.5, 0.5], 0.3, dy=-0.18),
+                D("ind-twinkle", "start", 0.95, "top", [0.5, 0.5], 0.2, dy=-0.34)]),
+    dict(id="planet-nest", name="Planet Nest", season=None, blurb="A daytime sky dock with a planet tucked into a cup, and the sun coming up.",
+         look=dict(style="gradient", color="#DDF0FF", color2="#FFE3F1", gradient_angle=0, opacity=94, outline=True,
+                   outline_color="#A9C8EE", outline_width=1.5, roundness=0.5, indicator="twinkle"),
+         ears=False, snow=False, room_start=1.5,
+         attach=[A("cup", "start", 0.75, 0.62, "planet-earthy")],
+         decor=[D("planet-sunny", "end", 0.75, "top", [0.5, 0.68], 0.9, behind=True)]),
 ]
 
 
@@ -136,8 +174,10 @@ def decor_box(d, bx, by, L, H):
 def preview_html(t, uid):
     W, Hc = 240, 108
     H, icon, gap, pad = 44, 30, 7, 10
-    L = 3 * icon + 2 * gap + 2 * pad
-    bx, by = (W - L) / 2, Hc - H - 8
+    rs, re = t.get("room_start", 0), t.get("room_end", 0)
+    L = 3 * icon + 2 * gap + 2 * pad + (rs + re) * H
+    moon_room = max((1.3 * a["size"] * H for a in t.get("attach", []) if a["kind"] == "moon"), default=0)
+    bx, by = (W - L - moon_room) / 2, Hc - H - 8
     lk = t["look"]
     leaf = lk.get("shape") == "leaf"
     fill, fill2 = lk.get("color", "#E9DDFB"), lk.get("color2")
@@ -157,26 +197,70 @@ def preview_html(t, uid):
     for d in t["decor"]:
         x, y, s = decor_box(d, bx, by, L, H)
         flip = "transform:scaleX(-1);" if d["mirror"] else ""
-        tag = f'<img src="{(ASSETS / (d["sprite"] + ".svg")).as_uri()}" style="position:absolute;left:{x}px;top:{y}px;width:{s}px;height:{s}px;{flip}">'
+        name, tone = TONED.get(d["sprite"], (d["sprite"], ""))
+        tone = f"filter:{tone};" if tone else ""
+        tag = f'<img src="{(ASSETS / (name + ".svg")).as_uri()}" style="position:absolute;left:{x}px;top:{y}px;width:{s}px;height:{s}px;{flip}{tone}">'
         (imgs_behind if d["behind"] else imgs_front).append(tag)
+    attach = t.get("attach", [])
+    href = lambda n: (ASSETS / f"{n}.svg").as_uri()  # noqa: E731
+    shapes, after_fill, outline_extra, after_outline = [], [], [], []
+    for a in attach:
+        if a["kind"] == "ring":
+            pr = a["size"] * H
+            cx = bx + a["along"] * H if a["from"] == "start" else bx + L - a["along"] * H
+            rx, ry, yc, w = 1.95 * pr, .6 * pr, by + .06 * H, .4 * pr
+            arc = f"M{cx-rx} {yc}A{rx} {ry} 0 0 1 {cx+rx} {yc}"
+            parts.append(f'<path d="{arc}" fill="none" stroke="{stroke}" stroke-width="{w+2*sw}" stroke-linecap="round"/>'
+                         f'<path d="{arc}" fill="none" stroke="{paint}" stroke-opacity="{op}" stroke-width="{w}" stroke-linecap="round"/>')
+            s2 = 2.29 * pr
+            parts.append(f'<image href="{href(a["sprite"])}" x="{cx-s2/2}" y="{by-.25*pr-s2/2}" width="{s2}" height="{s2}"/>')
+        elif a["kind"] == "cup":
+            r = a["size"] * H
+            cx = bx + a["along"] * H if a["from"] == "start" else bx + L - a["along"] * H
+            cy = by + .02 * H
+            shapes.append(f'<circle cx="{cx}" cy="{cy}" r="{r}"/>')
+            s2 = 2.56 * r
+            after_fill.append(("cup", f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{paint}" fill-opacity="{op}"/>'
+                                      f'<image href="{href(a["sprite"])}" x="{cx-s2/2}" y="{cy-.45*r-s2/2}" width="{s2}" height="{s2}" clip-path="url(#above{uid})"/>'))
+            parts.insert(0, f'<defs><clipPath id="above{uid}"><rect x="0" y="0" width="{W}" height="{by}"/></clipPath></defs>')
+            outline_extra.append(f'<path d="M{cx-r*.96} {by}H{cx+r*.96}" stroke="{stroke}" stroke-opacity=".55" stroke-width="{sw*.9}" stroke-linecap="round"/>')
+        elif a["kind"] == "moon":
+            r = a["size"] * H
+            cx, cy = bx + L + .3 * r, by + .46 * H
+            ix, iy, ir = cx + .45 * r, cy - .12 * r, .82 * r
+            mask = f"m{uid}"
+            parts.insert(0, f'<defs><mask id="{mask}"><circle cx="{cx}" cy="{cy}" r="{r+sw}" fill="#fff"/><circle cx="{ix}" cy="{iy}" r="{ir-sw}" fill="#000"/></mask>'
+                            f'<mask id="{mask}f"><circle cx="{cx}" cy="{cy}" r="{r}" fill="#fff"/><circle cx="{ix}" cy="{iy}" r="{ir}" fill="#000"/></mask></defs>')
+            shapes.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" mask="url(#{mask})"/>')
+            after_fill.append(("moon", f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{a["color"] or "#FFE9A8"}" mask="url(#{mask}f)"/>'))
+            fs = .62 * r
+            after_outline.append(f'<image href="{href(a["sprite"])}" x="{cx-.66*r-fs/2}" y="{by+.5*H-fs/2}" width="{fs}" height="{fs}"/>')
+    if shapes:
+        # one outline round the band and everything joined to it: stroke them all, then paint over the inner lines
+        parts.append(f'<g fill="none" stroke="{stroke}" stroke-width="{2*sw}" stroke-linejoin="round"><path d="{path}"/>{"".join(shapes)}</g>')
+        parts.extend(svg for kind, svg in after_fill if kind == "cup")
     if t["ears"]:
         parts.append(ears_svg(bx, by, L, H, fill, op, stroke, sw))
     parts.append(f'<path d="{path}" fill="{paint}" fill-opacity="{op}" stroke="none"/>')
+    if shapes:
+        parts.extend(svg for kind, svg in after_fill if kind == "moon")
     if t["snow"]:
         parts.append(snow_svg(bx, by, L, H, f"c{uid}"))
     if leaf:
         e = .42 * H
         parts.append(f'<path d="M{bx-e*.6} {by+.5*H}C{bx+L*.3} {by+.56*H} {bx+L*.7} {by+.44*H} {bx+L+e*.7} {by+.46*H}" stroke="{stroke}" stroke-opacity=".4" stroke-width="1.6" fill="none"/>')
         parts.append(f'<path d="M{bx+L+e*.92} {by+.45*H}C{bx+L+e+.12*H} {by+.42*H} {bx+L+e+.24*H} {by+.33*H} {bx+L+e+.3*H} {by+.16*H}" stroke="{stroke}" stroke-width="3" stroke-linecap="round" fill="none"/>')
-    parts.append(f'<path d="{path}" fill="none" stroke="{stroke}" stroke-width="{sw}"/>')
+    if not shapes:
+        parts.append(f'<path d="{path}" fill="none" stroke="{stroke}" stroke-width="{sw}"/>')
+    parts.extend(outline_extra + after_outline)
     colours = ["#B497FF", "#F4A6C8", "#7ED9AE"]
     for i, c in enumerate(colours):
-        ix = bx + pad + i * (icon + gap)
+        ix = bx + rs * H + pad + i * (icon + gap)
         iy = by + (H - icon) / 2 - 2
         parts.append(f'<rect x="{ix}" y="{iy}" width="{icon}" height="{icon}" rx="8" fill="{c}"/>'
                      f'<rect x="{ix+4}" y="{iy+3}" width="{icon-8}" height="5" rx="2.5" fill="#fff" opacity=".45"/>')
     ind = lk.get("indicator", "paw")
-    ix, iy = bx + pad + icon / 2, by + H - 6
+    ix, iy = bx + rs * H + pad + icon / 2, by + H - 6
     if ind in INDICATORS:
         imgs_front.append(f'<img src="{(ASSETS / f"ind-{ind}.svg").as_uri()}" style="position:absolute;left:{ix-6}px;top:{iy-6}px;width:12px;height:12px">')
     elif ind == "dot":
@@ -185,7 +269,7 @@ def preview_html(t, uid):
         parts.append(f'<g transform="translate({ix-5} {iy-5}) scale({10/24})" fill="{lk.get("indicator_color", "#7444D6")}">'
                      '<ellipse cx="12" cy="16.2" rx="5.6" ry="4.6"/><ellipse cx="5.2" cy="10.4" rx="2.2" ry="2.7"/>'
                      '<ellipse cx="9.4" cy="6.2" rx="2.3" ry="2.9"/><ellipse cx="14.6" cy="6.2" rx="2.3" ry="2.9"/><ellipse cx="18.8" cy="10.4" rx="2.2" ry="2.7"/></g>')
-    svg = f'<svg width="{W}" height="{Hc}" style="position:absolute;left:0;top:0" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
+    svg = f'<svg width="{W}" height="{Hc}" style="position:absolute;left:0;top:0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">{"".join(parts)}</svg>'
     return "".join(imgs_behind) + svg + "".join(imgs_front), W, Hc
 
 
@@ -198,15 +282,16 @@ def main():
             (OUT / sub).mkdir(parents=True)
 
         # sprites: one sheet, 256px decorations then 96px indicators
-        items = [(n, ASSETS / f"{n}.svg", 256, OUT / "decor" / f"{n.removeprefix('dock-')}.png") for n in DECOR]
-        items += [(n, ASSETS / f"ind-{n}.svg", 96, OUT / "indicators" / f"{n}.png") for n in INDICATORS]
+        items = [(n, ASSETS / f"{n}.svg", 256, OUT / "decor" / f"{n.removeprefix('dock-')}.png", "") for n in DECOR]
+        items += [(n, ASSETS / f"{src}.svg", 256, OUT / "decor" / f"{n}.png", tone) for n, (src, tone) in TONED.items()]
+        items += [(n, ASSETS / f"ind-{n}.svg", 96, OUT / "indicators" / f"{n}.png", "") for n in INDICATORS]
         x, html = 0, []
-        for _, src, size, _ in items:
-            html.append(f'<img src="{src.as_uri()}" style="position:absolute;left:{x}px;top:0;width:{size}px;height:{size}px">')
+        for _, src, size, _, tone in items:
+            html.append(f'<img src="{src.as_uri()}" style="position:absolute;left:{x}px;top:0;width:{size}px;height:{size}px;{f"filter:{tone}" if tone else ""}">')
             x += size + 4
         sheet = render(f'<html><body style="margin:0;background:transparent">{"".join(html)}</body></html>', x, 256, work)
         x = 0
-        for _, _, size, dest in items:
+        for _, _, size, dest, _ in items:
             sheet.crop((x, 0, x + size, size)).save(dest)
             x += size + 4
 
@@ -231,7 +316,9 @@ def main():
             look.setdefault("shape", "rounded")
             catalogue.append(dict(id=t["id"], name=t["name"], season=t["season"], blurb=t["blurb"],
                                   preview=f"previews/{t['id']}.png", look=look, ears=t["ears"], snow=t["snow"],
-                                  decor=[dict(d, sprite=f"decor/{d['sprite'].removeprefix('dock-')}.png") for d in t["decor"]]))
+                                  decor=[dict(d, sprite=f"decor/{d['sprite'].removeprefix('dock-')}.png") for d in t["decor"]],
+                                  attach=[dict(a, sprite=f"decor/{a['sprite']}.png" if a["sprite"] else None) for a in t.get("attach", [])],
+                                  room_start=t.get("room_start", 0), room_end=t.get("room_end", 0)))
         data = dict(indicators={n: f"indicators/{n}.png" for n in INDICATORS}, themes=catalogue)
         (OUT / "dockthemes.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
         print(f"{len(THEMES)} themes, {len(DECOR)} decorations, {len(INDICATORS)} indicators -> {OUT}")

@@ -5,7 +5,10 @@
     "leaf": "indicators/leaf.png",
     "pumpkin": "indicators/pumpkin.png",
     "petal": "indicators/petal.png",
-    "heart": "indicators/heart.png"
+    "heart": "indicators/heart.png",
+    "planet": "indicators/planet.png",
+    "moon": "indicators/moon.png",
+    "twinkle": "indicators/twinkle.png"
   },
   "themes": [
     {
@@ -27,7 +30,10 @@
       },
       "ears": false,
       "snow": false,
-      "decor": []
+      "decor": [],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "purrple",
@@ -51,7 +57,10 @@
       },
       "ears": true,
       "snow": false,
-      "decor": []
+      "decor": [],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "mushroom",
@@ -90,7 +99,10 @@
           "upright": true,
           "mirror": false
         }
-      ]
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "midnight",
@@ -114,7 +126,10 @@
       },
       "ears": false,
       "snow": false,
-      "decor": []
+      "decor": [],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "snowy-pine",
@@ -155,7 +170,10 @@
           "upright": false,
           "mirror": false
         }
-      ]
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "autumn-leaf",
@@ -196,7 +214,10 @@
           "upright": true,
           "mirror": false
         }
-      ]
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "pumpkin-night",
@@ -250,7 +271,10 @@
           "upright": true,
           "mirror": false
         }
-      ]
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
     },
     {
       "id": "sakura-breeze",
@@ -291,7 +315,199 @@
           "upright": false,
           "mirror": false
         }
-      ]
+      ],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0
+    },
+    {
+      "id": "starlight",
+      "name": "Starlight",
+      "season": null,
+      "blurb": "A night-sky dock that is a planet's ring, with little planets rising behind.",
+      "preview": "previews/starlight.png",
+      "look": {
+        "style": "gradient",
+        "color": "#2B2150",
+        "color2": "#55387F",
+        "gradient_angle": 0,
+        "opacity": 96,
+        "outline": true,
+        "outline_color": "#9C86E6",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "planet",
+        "theme": "starlight",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/planet-moon.dusk.png",
+          "from": "end",
+          "offset": 1.55,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.6
+          ],
+          "size": 0.62,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/planet-rosy.dusk.png",
+          "from": "end",
+          "offset": 0.7,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.64
+          ],
+          "size": 0.5,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [
+        {
+          "kind": "ring",
+          "from": "start",
+          "along": 1.12,
+          "size": 0.55,
+          "sprite": "decor/planet-ball.png",
+          "color": null
+        }
+      ],
+      "room_start": 1.75,
+      "room_end": 0
+    },
+    {
+      "id": "moonbeam",
+      "name": "Moonbeam",
+      "season": null,
+      "blurb": "Deep blue, and the end of the dock is a sleepy crescent moon.",
+      "preview": "previews/moonbeam.png",
+      "look": {
+        "style": "gradient",
+        "color": "#1F2A5A",
+        "color2": "#36468A",
+        "gradient_angle": 0,
+        "opacity": 96,
+        "outline": true,
+        "outline_color": "#8FA2E6",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "moon",
+        "theme": "moonbeam",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/ind-twinkle.png",
+          "from": "start",
+          "offset": 0.45,
+          "edge": "top",
+          "dy": -0.18,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "size": 0.3,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        },
+        {
+          "sprite": "decor/ind-twinkle.png",
+          "from": "start",
+          "offset": 0.95,
+          "edge": "top",
+          "dy": -0.34,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "size": 0.2,
+          "behind": false,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [
+        {
+          "kind": "moon",
+          "from": "end",
+          "along": 0,
+          "size": 0.56,
+          "sprite": "decor/moon-face.png",
+          "color": "#FFE9A8"
+        }
+      ],
+      "room_start": 0,
+      "room_end": 0.5
+    },
+    {
+      "id": "planet-nest",
+      "name": "Planet Nest",
+      "season": null,
+      "blurb": "A daytime sky dock with a planet tucked into a cup, and the sun coming up.",
+      "preview": "previews/planet-nest.png",
+      "look": {
+        "style": "gradient",
+        "color": "#DDF0FF",
+        "color2": "#FFE3F1",
+        "gradient_angle": 0,
+        "opacity": 94,
+        "outline": true,
+        "outline_color": "#A9C8EE",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "twinkle",
+        "theme": "planet-nest",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [
+        {
+          "sprite": "decor/planet-sunny.png",
+          "from": "end",
+          "offset": 0.75,
+          "edge": "top",
+          "dy": 0.0,
+          "anchor": [
+            0.5,
+            0.68
+          ],
+          "size": 0.9,
+          "behind": true,
+          "upright": true,
+          "mirror": false
+        }
+      ],
+      "attach": [
+        {
+          "kind": "cup",
+          "from": "start",
+          "along": 0.75,
+          "size": 0.62,
+          "sprite": "decor/planet-earthy.png",
+          "color": null
+        }
+      ],
+      "room_start": 1.5,
+      "room_end": 0
     }
   ]
 }

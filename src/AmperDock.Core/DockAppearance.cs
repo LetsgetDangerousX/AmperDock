@@ -26,7 +26,7 @@ public static class DockIndicators
 {
     public const string Paw = "paw", Dot = "dot";
     public static readonly string[] Drawn = [Paw, Dot];
-    public static readonly string[] Pictures = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart"];
+    public static readonly string[] Pictures = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart", "planet", "moon", "twinkle"];
     public static bool IsKnown(string? id) => id is not null && (Drawn.Contains(id) || Pictures.Contains(id));
 
     public const string Small = "small", Medium = "medium", Large = "large";
@@ -83,6 +83,15 @@ public sealed record DockAppearance
     /// <summary>Colour for the paw or dot indicator, or null for the theme's accent.</summary>
     public string? IndicatorColor { get; init; }
 
+    /// <summary>Take the dock's colours from the wallpaper (and follow it when it changes).</summary>
+    public bool MatchWallpaper { get; init; }
+
+    /// <summary>With MatchWallpaper: how strongly to wash the icons toward the wallpaper's colour, 0 to 100.</summary>
+    public int IconTint { get; init; }
+
+    /// <summary>Reflections under the icons: 0 = off, else how strong (1 to 100).</summary>
+    public int Reflection { get; init; }
+
     /// <summary>Running indicator size: small, medium or large (<see cref="DockIndicators.Sizes"/>).</summary>
     public string IndicatorSize { get; init; } = DockIndicators.Medium;
 
@@ -119,6 +128,8 @@ public sealed record DockAppearance
         Indicator = DockIndicators.IsKnown(Indicator) ? Indicator : DockIndicators.Paw,
         IndicatorColor = Hex(IndicatorColor),
         IndicatorSize = DockIndicators.Sizes.Contains(IndicatorSize) ? IndicatorSize : DockIndicators.Medium,
+        Reflection = Math.Clamp(Reflection, 0, 100),
+        IconTint = Math.Clamp(IconTint, 0, 100),
     };
 
     private static string? Hex(string? s) => IsHexColor(s) ? s!.ToUpperInvariant() : null;

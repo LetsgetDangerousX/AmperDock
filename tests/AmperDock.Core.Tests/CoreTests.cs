@@ -315,6 +315,47 @@ public class TaskMatchTests
     }
 }
 
+public class WallpaperPaletteTests
+{
+    private static byte[] Fill(int n, params (byte r, byte g, byte b, int share)[] parts)
+    {
+        var px = new List<byte>();
+        foreach (var (r, g, b, share) in parts)
+            for (var i = 0; i < n * share / 100; i++) px.AddRange([r, g, b]);
+        return px.ToArray();
+    }
+
+    private static double Hue(string hex)
+    {
+        var v = Convert.ToInt32(hex[1..], 16);
+        return WallpaperPalette.ToHsv((v >> 16) / 255.0, ((v >> 8) & 255) / 255.0, (v & 255) / 255.0).h;
+    }
+
+    [Fact]
+    public void A_dark_neon_wallpaper_gives_a_dark_dock_in_its_colour()
+    {
+        // mostly navy night, with neon pink streaks
+        var p = WallpaperPalette.From(Fill(1000, (12, 10, 40, 80), (255, 40, 180, 20)));
+        Assert.True(p.Dark);
+        Assert.InRange(Hue(p.Tint), 310, 330);
+    }
+
+    [Fact]
+    public void A_light_autumn_wallpaper_gives_a_light_warm_dock()
+    {
+        var p = WallpaperPalette.From(Fill(1000, (245, 235, 220, 70), (230, 120, 40, 30)));
+        Assert.False(p.Dark);
+        Assert.InRange(Hue(p.Tint), 15, 35);
+    }
+
+    [Fact]
+    public void A_black_and_white_picture_falls_back_to_lilac()
+    {
+        var p = WallpaperPalette.From(Fill(1000, (20, 20, 20, 50), (240, 240, 240, 50)));
+        Assert.InRange(Hue(p.Tint), 250, 275);
+    }
+}
+
 public class ThemeFieldTests
 {
     [Fact]

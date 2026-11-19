@@ -60,7 +60,21 @@ public enum BandShape { Rounded, Leaf }
 /// </summary>
 public readonly record struct DecorDraw(string Key, float CenterX, float CenterY, float Width, float Height, Matrix3x2 Orient, bool Behind, float Opacity = 1);
 
-public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing);
+/// <summary>Shapes that grow out of the band itself, painted with its paint and sharing its outline.</summary>
+public enum AttachKind
+{
+    Cup,    // the far edge swells into a round cup; a planet sits down inside it
+    Ring,   // a planet at one end, its ring passing behind it; the band is the front of the ring
+    Moon,   // one end of the band flows into a crescent moon
+}
+
+/// <summary>
+/// One attachment. Along = where its centre is, in band heights from the chosen end; Size = its radius
+/// in band heights; Sprite = the picture (planet, or the moon's face); Color = the moon's paint.
+/// </summary>
+public readonly record struct Attachment(AttachKind Kind, bool AtEnd, float Along, float Size, string? Sprite, Argb Color = default);
+
+public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing, bool NoReflection = false);
 public readonly record struct IndicatorDraw(float CenterX, float CenterY, float Size, bool Focused);
 /// <summary>Which side of the anchor point the label pill sits on.</summary>
 public enum LabelSide { Above, Below, Right, Left }
@@ -76,7 +90,7 @@ public sealed record LabelDraw(string Text, float X, float Y, LabelSide Side = L
 public sealed record DockScene(RectF Background, float Radius, IReadOnlyList<IconDraw> Icons,
     IReadOnlyList<IndicatorDraw> Indicators, LabelDraw? Label, float Scale,
     DockEdge Edge = DockEdge.Bottom, BandShape Shape = BandShape.Rounded, bool Ears = false, bool Snow = false,
-    IReadOnlyList<DecorDraw>? Decor = null);
+    IReadOnlyList<DecorDraw>? Decor = null, IReadOnlyList<Attachment>? Attach = null, float Reflection = 0);
 
 /// <summary>
 /// GPU renderer for one dock window: D3D11 device → Direct2D device context → a premultiplied-alpha
@@ -158,7 +172,7 @@ public sealed class DockRenderer : IDisposable
         _dwrite = DWrite.DWriteCreateFactory<IDWriteFactory>(DWriteFactoryType.Shared);
 
         // re-upload icons after a device loss
-        foreach (var (key, src) in _iconSource) _icons[key] = MakeBitmap(src.w, src.h, src.px);
+        foreach (var (key, src) in _iconSource) _icons[key] = MakeBitmap(src.w, src.h, Tinted(key, src.px));
     }
 
     private void CreateTarget()
@@ -206,7 +220,54 @@ public sealed class DockRenderer : IDisposable
     {
         if (_icons.Remove(key, out var old)) old.Dispose();
         _iconSource[key] = (width, height, bgra);
-        _icons[key] = MakeBitmap(width, height, bgra);
+        _icons[key] = MakeBitmap(width, height, Tinted(key, bgra));
+    }
+
+    private Argb _tint;
+    private float _tintAmount;
+
+    /// <summary>
+    /// Wash every app icon toward one colour (matching the wallpaper), by <paramref name="amount"/> 0..1.
+    /// Lightness is kept, so icons stay recognisable; theme pictures are left alone.
+    /// </summary>
+    public void SetIconTint(Argb tint, float amount)
+    {
+        amount = Math.Clamp(amount, 0, 1);
+        if (tint.Alpha == 0) amount = 0;
+        if (tint == _tint && MathF.Abs(amount - _tintAmount) < 0.001f) return;
+        (_tint, _tintAmount) = (tint, amount);
+        foreach (var (key, src) in _iconSource)
+        {
+            if (key.StartsWith("theme:", StringComparison.Ordinal)) continue;
+            if (_icons.Remove(key, out var old)) old.Dispose();
+            _icons[key] = MakeBitmap(src.w, src.h, Tinted(key, src.px));
+        }
+    }
+
+    private byte[] Tinted(string key, byte[] bgra)
+    {
+        if (_tintAmount <= 0 || key.StartsWith("theme:", StringComparison.Ordinal)) return bgra;
+        var c = _tint.ToColor4();
+        float tr = c.R, tg = c.G, tb = c.B;
+        var tl = MathF.Max(0.05f, 0.299f * tr + 0.587f * tg + 0.114f * tb);
+        var k = _tintAmount;
+        var outPx = new byte[bgra.Length];
+        for (var i = 0; i < bgra.Length; i += 4)
+        {
+            var a = bgra[i + 3];
+            outPx[i + 3] = a;
+            if (a == 0) continue;
+            // un-premultiply, take the lightness, re-colour it with the tint's hue, blend, premultiply again
+            float af = a / 255f, b = bgra[i] / 255f / af, g = bgra[i + 1] / 255f / af, r = bgra[i + 2] / 255f / af;
+            var l = 0.299f * r + 0.587f * g + 0.114f * b;
+            var scale = l / tl;
+            float nr = MathF.Min(1, tr * scale), ng = MathF.Min(1, tg * scale), nb = MathF.Min(1, tb * scale);
+            r += (nr - r) * k; g += (ng - g) * k; b += (nb - b) * k;
+            outPx[i] = (byte)Math.Clamp(b * af * 255 + 0.5f, 0, 255);
+            outPx[i + 1] = (byte)Math.Clamp(g * af * 255 + 0.5f, 0, 255);
+            outPx[i + 2] = (byte)Math.Clamp(r * af * 255 + 0.5f, 0, 255);
+        }
+        return outPx;
     }
 
     private unsafe ID2D1Bitmap1 MakeBitmap(int w, int h, byte[] bgra)
@@ -225,9 +286,11 @@ public sealed class DockRenderer : IDisposable
         ctx.Clear(new Color4(0, 0, 0, 0));
 
         var decor = scene.Decor ?? [];
+        foreach (var a in scene.Attach ?? []) if (a.Kind == AttachKind.Ring) DrawRingBack(ctx, scene, style, a);
         foreach (var d in decor) if (d.Behind) DrawDecor(ctx, d);
         DrawBackground(ctx, scene, style);
         foreach (var d in decor) if (!d.Behind) DrawDecor(ctx, d);
+        if (scene.Reflection > 0) DrawReflections(ctx, scene);
 
         foreach (var icon in scene.Icons)
         {
@@ -349,6 +412,35 @@ public sealed class DockRenderer : IDisposable
         using var bandPath = BandPath(s, map);
         var band = bandPath.Geometry;
 
+        // cups and moons join the band's silhouette: one outline (and one shadow) goes round them all
+        float H = map.H, L = map.L;
+        var owned = new List<IDisposable>();
+        var cups = new List<(Attachment a, float x, float r, ID2D1Geometry circle)>();
+        var moons = new List<(Attachment a, float cx, float r, ID2D1Geometry crescent)>();
+        ID2D1Geometry shape = band;
+        foreach (var a in s.Shape == BandShape.Rounded ? s.Attach ?? [] : [])
+        {
+            if (a.Kind == AttachKind.Cup)
+            {
+                float x = a.AtEnd ? L - a.Along * H : a.Along * H, r = a.Size * H;
+                var circle = _d2dFactory!.CreateEllipseGeometry(new Ellipse(map.P(x, 0.02f * H), r, r));
+                owned.Add(circle);
+                cups.Add((a, x, r, circle));
+                shape = Owned(owned, Combine(shape, circle, CombineMode.Union));
+            }
+            else if (a.Kind == AttachKind.Moon)
+            {
+                float r = a.Size * H, cx = a.AtEnd ? L + 0.3f * r : -0.3f * r, side = a.AtEnd ? 1 : -1;
+                using var outer = _d2dFactory!.CreateEllipseGeometry(new Ellipse(map.P(cx, 0.46f * H), r, r));
+                using var inner = _d2dFactory.CreateEllipseGeometry(new Ellipse(map.P(cx + side * 0.45f * r, 0.46f * H - 0.12f * r), 0.82f * r, 0.82f * r));
+                var crescent = Owned(owned, Combine(outer, inner, CombineMode.Exclude));
+                moons.Add((a, cx, r, crescent));
+                shape = Owned(owned, Combine(shape, crescent, CombineMode.Union));
+            }
+        }
+        try
+        {
+
         // soft shadow: the band drawn a few times, wider and fainter each time
         if (style.Shadow.Alpha > 0)
         using (var shadow = ctx.CreateSolidColorBrush(style.Shadow.WithAlpha(1).ToColor4()))
@@ -358,8 +450,8 @@ public sealed class DockRenderer : IDisposable
             for (var i = 1; i <= 4; i++)
             {
                 shadow.Opacity = 0.05f / i * (style.Shadow.Alpha / 255f);
-                ctx.DrawGeometry(band, shadow, i * 6 * s.Scale, _round);
-                ctx.FillGeometry(band, shadow);
+                ctx.DrawGeometry(shape, shadow, i * 6 * s.Scale, _round);
+                ctx.FillGeometry(shape, shadow);
             }
             ctx.Transform = Matrix3x2.Identity;
         }
@@ -370,11 +462,43 @@ public sealed class DockRenderer : IDisposable
 
         if (s.Ears && hasFill) DrawEars(ctx, map, fill, outline, style, ow);
 
-        if (hasFill) ctx.FillGeometry(band, fill);
+        if (hasFill)
+        {
+            // a cradled planet sits between the cup's paint and the band's, so the band covers its lower half
+            foreach (var (a, x, r, circle) in cups)
+            {
+                using (var cupOnly = Combine(circle, band, CombineMode.Exclude)) ctx.FillGeometry(cupOnly, fill);
+                if (a.Sprite is { } key && _icons.TryGetValue(key, out var planet))
+                {
+                    // only the part above the band shows, even through see-through glass: it has sunk into the dock
+                    var c = map.P(x, 0.02f * H - 0.45f * r);
+                    var size = 2.56f * r;
+                    using var everything = _d2dFactory!.CreateRectangleGeometry(new Rect(c.X - size, c.Y - size, size * 2, size * 2));
+                    using var aboveBand = Combine(everything, band, CombineMode.Exclude);
+                    ctx.PushLayer(new LayerParameters1 { ContentBounds = new Rect(-100000, -100000, 200000, 200000),
+                        GeometricMask = aboveBand, MaskAntialiasMode = AntialiasMode.PerPrimitive, MaskTransform = Matrix3x2.Identity, Opacity = 1 }, null);
+                    ctx.DrawBitmap(planet, new Rect(c.X - size / 2, c.Y - size / 2, size, size), 1, InterpolationMode.HighQualityCubic, null, null);
+                    ctx.PopLayer();
+                }
+            }
+            ctx.FillGeometry(band, fill);
+            foreach (var (a, _, _, crescent) in moons)
+            {
+                using var moonPaint = ctx.CreateSolidColorBrush((a.Color.Alpha > 0 ? a.Color : new Argb(0xFFFFE9A8)).ToColor4());
+                ctx.FillGeometry(crescent, moonPaint);
+            }
+        }
         if (s.Snow && hasFill) DrawSnow(ctx, map, band, style);
         if (s.Shape == BandShape.Leaf) DrawVeins(ctx, map, style, s.Scale);
 
-        if (style.Outline.Alpha > 0)
+        if (style.Outline.Alpha > 0 && !ReferenceEquals(shape, band))
+        {
+            ctx.DrawGeometry(shape, outline, ow, _round);
+            // the cup's rim: a faint line where the planet sinks into the band
+            using var rim = ctx.CreateSolidColorBrush(style.Outline.WithAlphaScaled(0.55f).ToColor4());
+            foreach (var (_, x, r, _) in cups) ctx.DrawLine(map.P(x - r * 0.96f, 0), map.P(x + r * 0.96f, 0), rim, ow * 0.9f, _round);
+        }
+        else if (style.Outline.Alpha > 0)
         {
             if (s.Shape == BandShape.Rounded)
             {
@@ -392,6 +516,108 @@ public sealed class DockRenderer : IDisposable
             var inset = 1.5f * s.Scale;
             var r = MathF.Min(s.Radius, map.L / 2);
             ctx.DrawLine(map.P(r, inset), map.P(map.L - r, inset), highlight, 1 * s.Scale);
+        }
+
+        // the moon's sleepy face, on the thick side of the crescent
+        foreach (var (a, cx, r, _) in moons)
+        {
+            if (a.Sprite is not { } key || !_icons.TryGetValue(key, out var face)) continue;
+            var c = map.P(cx - (a.AtEnd ? 1 : -1) * 0.66f * r, 0.5f * H);
+            var size = 0.62f * r;
+            ctx.DrawBitmap(face, new Rect(c.X - size / 2, c.Y - size / 2, size, size), 1, InterpolationMode.HighQualityCubic, null, null);
+        }
+        }
+        finally
+        {
+            foreach (var d in owned) d.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A soft mirror image of each icon on the dock's surface, on the screen side of the icon,
+    /// fading out over about 40% of the icon's size.
+    /// </summary>
+    private void DrawReflections(ID2D1DeviceContext ctx, DockScene s)
+    {
+        var gap = 2 * s.Scale;
+        using var stops = ctx.CreateGradientStopCollection(
+            [new GradientStop(0, new Color4(1, 1, 1, Math.Clamp(s.Reflection, 0, 1) * 0.6f)), new GradientStop(1, new Color4(1, 1, 1, 0))], ExtendMode.Clamp);
+        foreach (var icon in s.Icons)
+        {
+            if (icon.NoReflection || icon.IconKey is null || !_icons.TryGetValue(icon.IconKey, out var bmp)) continue;
+            var r = icon.Rect;
+            var depth = 0.42f * MathF.Min(r.W, r.H);
+            // mirror line, the fade's direction, and the patch the reflection may cover, for each edge
+            var (mirror, from, to, area) = s.Edge switch
+            {
+                DockEdge.Top => (Matrix3x2.CreateScale(1, -1, new Vector2(0, r.Y - gap / 2)),
+                    new Vector2(r.CenterX, r.Y - gap), new Vector2(r.CenterX, r.Y - gap - depth), new Rect(r.X, r.Y - gap - depth, r.W, depth)),
+                DockEdge.Left => (Matrix3x2.CreateScale(-1, 1, new Vector2(r.X - gap / 2, 0)),
+                    new Vector2(r.X - gap, r.Y + r.H / 2), new Vector2(r.X - gap - depth, r.Y + r.H / 2), new Rect(r.X - gap - depth, r.Y, depth, r.H)),
+                DockEdge.Right => (Matrix3x2.CreateScale(-1, 1, new Vector2(r.Right + gap / 2, 0)),
+                    new Vector2(r.Right + gap, r.Y + r.H / 2), new Vector2(r.Right + gap + depth, r.Y + r.H / 2), new Rect(r.Right + gap, r.Y, depth, r.H)),
+                _ => (Matrix3x2.CreateScale(1, -1, new Vector2(0, r.Bottom + gap / 2)),
+                    new Vector2(r.CenterX, r.Bottom + gap), new Vector2(r.CenterX, r.Bottom + gap + depth), new Rect(r.X, r.Bottom + gap, r.W, depth)),
+            };
+            using var fade = ctx.CreateLinearGradientBrush(new LinearGradientBrushProperties(from, to), stops);
+            ctx.PushLayer(new LayerParameters1
+            {
+                ContentBounds = area, OpacityBrush = fade, MaskAntialiasMode = AntialiasMode.PerPrimitive,
+                MaskTransform = Matrix3x2.Identity, Opacity = icon.Opacity,
+            }, null);
+            ctx.Transform = mirror;
+            ctx.DrawBitmap(bmp, new Rect(r.X, r.Y, r.W, r.H), 1, InterpolationMode.HighQualityCubic, null, null);
+            ctx.Transform = Matrix3x2.Identity;
+            ctx.PopLayer();
+        }
+    }
+
+    private static T Owned<T>(List<IDisposable> owned, T item) where T : IDisposable
+    {
+        owned.Add(item);
+        return item;
+    }
+
+    /// <summary>A new geometry: <paramref name="a"/> combined with <paramref name="b"/> (union, exclude...).</summary>
+    private ID2D1PathGeometry Combine(ID2D1Geometry a, ID2D1Geometry b, CombineMode mode)
+    {
+        var g = _d2dFactory!.CreatePathGeometry();
+        using var sink = g.Open();
+        a.CombineWithGeometry(b, mode, sink);
+        sink.Close();
+        return g;
+    }
+
+    /// <summary>
+    /// A ringed planet at one end: the back half of the ring (painted like the band, with its outline)
+    /// and the planet in front of it. Drawn before the band, which then passes in front as the ring's front.
+    /// </summary>
+    private void DrawRingBack(ID2D1DeviceContext ctx, DockScene s, DockStyle style, Attachment a)
+    {
+        if (s.Shape != BandShape.Rounded) return;
+        var hasFill = style.Background.Alpha > 0 || style.BackgroundEnd is { Alpha: > 0 };
+        if (!hasFill) return;
+        var map = new BandMap(s.Background, s.Edge);
+        float H = map.H, L = map.L, pr = a.Size * H;
+        float x = a.AtEnd ? L - a.Along * H : a.Along * H, rx = 1.95f * pr, ry = 0.6f * pr, yc = 0.06f * H;
+        const float k = 0.5523f;
+        using (var arc = new LocalPath(_d2dFactory!, map, filled: false))
+        {
+            arc.Begin(x - rx, yc).Curve(x - rx, yc - k * ry, x - k * rx, yc - ry, x, yc - ry)
+               .Curve(x + k * rx, yc - ry, x + rx, yc - k * ry, x + rx, yc).End(close: false);
+            var g = arc.Done();
+            var w = 0.4f * pr;
+            var ow = style.OutlineWidth * s.Scale;
+            using var fill = FillBrush(ctx, style, s.Background);
+            if (style.Outline.Alpha > 0)
+                using (var outline = ctx.CreateSolidColorBrush(style.Outline.ToColor4())) ctx.DrawGeometry(g, outline, w + 2 * ow, _round);
+            ctx.DrawGeometry(g, fill, w, _round);
+        }
+        if (a.Sprite is { } key && _icons.TryGetValue(key, out var planet))
+        {
+            var c = map.P(x, -0.25f * pr);
+            var size = 2.29f * pr;
+            ctx.DrawBitmap(planet, new Rect(c.X - size / 2, c.Y - size / 2, size, size), 1, InterpolationMode.HighQualityCubic, null, null);
         }
     }
 

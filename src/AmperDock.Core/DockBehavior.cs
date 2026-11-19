@@ -12,6 +12,15 @@ public sealed record DockBehavior
     /// <summary>Show live previews of an app's windows when the pointer rests on its icon.</summary>
     public bool Previews { get; init; } = true;
 
+    /// <summary>
+    /// A desktop shelf: it lives on the desktop behind your windows, and desktop icons dropped on it are
+    /// tidied away from the desktop (hidden there, never moved) until they come off the shelf again.
+    /// </summary>
+    public bool DesktopShelf { get; init; }
+
+    /// <summary>Desktop files this shelf has hidden from the desktop, so they can be put back exactly.</summary>
+    public List<string> HiddenOnDesktop { get; init; } = [];
+
     public static readonly DockBehavior Default = new();
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };

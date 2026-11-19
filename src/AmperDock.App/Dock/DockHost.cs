@@ -24,7 +24,8 @@ namespace AmperDock.App.Dock;
 /// the space next to it stays click-through. Drag empty dock space (or Alt+drag anywhere) to move the dock.
 /// </summary>
 /// <summary>What a dock's menu can ask the app to do (things that involve other windows or other docks).</summary>
-public sealed record DockCommands(Action<DockHost> OpenAppearance, Action OpenLooks, Action<DockHost> NewDock, Action<DockHost> RemoveDock);
+public sealed record DockCommands(Action<DockHost> OpenAppearance, Action OpenLooks, Action<DockHost> NewDock, Action<DockHost> RemoveDock,
+    Action<DockHost> NewShelf);
 
 public sealed class DockHost : IDisposable
 {
@@ -43,6 +44,7 @@ public sealed class DockHost : IDisposable
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
     private readonly Action _onTasks;
+    private readonly Action _onWallpaper;
     private readonly Dictionary<string, (string? target, ItemKeys keys)> _keys = new();
     private readonly FrameClock _clock;
 
@@ -130,10 +132,17 @@ public sealed class DockHost : IDisposable
             if (RegisterClassEx(ref wc) == 0) throw new InvalidOperationException($"RegisterClassEx failed: {Marshal.GetLastWin32Error()}");
         }
 
-        _hwnd = CreateWindowEx(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | WS_EX_TOPMOST, ClassName, "AmperDock", WS_POPUP,
+        // a desktop shelf sits on the desktop, under your windows; every other dock floats above them
+        _hwnd = CreateWindowEx(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | (IsShelf ? 0 : WS_EX_TOPMOST), ClassName, "AmperDock", WS_POPUP,
             0, 0, 100, 100, 0, 0, inst, 0);
         if (_hwnd == 0) throw new InvalidOperationException($"CreateWindowEx failed: {Marshal.GetLastWin32Error()}");
         s_hosts[_hwnd] = this;
+        if (IsShelf)
+        {
+            // owned by the desktop window, it stays visible when Win+D shows the desktop
+            var desktop = FindWindow("Progman", null);
+            if (desktop != 0) SetWindowLongPtr(_hwnd, GWLP_HWNDPARENT, desktop);
+        }
 
         // Explorer runs at medium integrity like us, but allow the drop messages through UIPI anyway
         Native.ChangeWindowMessageFilterEx(_hwnd, (uint)Native.WM_DROPFILES, Native.MSGFLT_ALLOW, 0);
@@ -148,9 +157,13 @@ public sealed class DockHost : IDisposable
         LoadThemePictures();
         Reload();
         ShowWindow(_hwnd, SW_SHOWNA);
+        if (IsShelf) SetWindowPos(_hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
         _onTasks = RefreshTasks;
         TaskWatcher.Shared.Changed += _onTasks;
+        _onWallpaper = () => { if (_appearance.MatchWallpaper) ApplyWallpaperColours(); };
+        Looks.WallpaperWatcher.Shared.Changed += _onWallpaper;
+        ApplyWallpaperColours();
         RefreshTasks();
     }
 
@@ -174,6 +187,7 @@ public sealed class DockHost : IDisposable
         _style = ComposeStyle();
         LoadThemePictures();
         if (resized) Place();                   // a bigger indicator makes the band taller
+        ApplyWallpaperColours();
         SetExpanded(_expanded, force: true);   // the region follows the band, which may now be a different shape
         Render();
     }
@@ -192,7 +206,11 @@ public sealed class DockHost : IDisposable
         if (_renderer is null) return;
         var keys = new List<string>();
         if (DockThemeCatalog.Shared.Indicators.TryGetValue(_appearance.Indicator, out var ind)) keys.Add(ind);
-        if (Theme is { } theme) keys.AddRange(theme.Decor.Select(d => d.Sprite));
+        if (Theme is { } theme)
+        {
+            keys.AddRange(theme.Decor.Select(d => d.Sprite));
+            keys.AddRange(theme.Attach.Where(a => a.Sprite is not null).Select(a => a.Sprite!));
+        }
         foreach (var key in keys.Distinct())
         {
             if (_renderer.HasIcon("theme:" + key)) continue;
@@ -201,10 +219,26 @@ public sealed class DockHost : IDisposable
     }
 
     /// <summary>Theme colours plus the user's style, colours, opacity and outline choices.</summary>
+    /// <summary>The wallpaper's colours for this dock's monitor, when "Match my wallpaper" is on.</summary>
+    private WallpaperPalette? WallpaperColours =>
+        _appearance.MatchWallpaper ? Looks.WallpaperWatcher.Shared.PaletteFor(_work.W > 0 ? _work : new RectF(0, 0, 1, 1)) : null;
+
+    /// <summary>Re-colour the dock (and tint the icons) after the wallpaper or the setting changed.</summary>
+    private void ApplyWallpaperColours()
+    {
+        if (_renderer is null) return;
+        _style = ComposeStyle();
+        var p = WallpaperColours;
+        _renderer.SetIconTint(p is null ? default : Argb.FromRgba(p.Tint), p is null ? 0 : _appearance.IconTint / 100f);
+        Render();
+    }
+
     private DockStyle ComposeStyle()
     {
         var t = _theme.DockStyle();
         var a = _appearance;
+        if (WallpaperColours is { } wp)   // the wallpaper picks the colours; everything else stays the person's choice
+            a = a with { Color = wp.Fill, Color2 = wp.Fill2, OutlineColor = wp.Outline, IndicatorColor = wp.Indicator };
         var k = a.Opacity / 100f;
         var baseFill = a.Color is null ? t.Background : Argb.FromRgba(a.Color);
         var outlineColour = a.OutlineColor is null ? t.Outline : Argb.FromRgba(a.OutlineColor);
@@ -447,7 +481,93 @@ public sealed class DockHost : IDisposable
 
     // ------------------------------------------------------------------ auto-hide
 
-    private bool AutoHides => _behavior.AutoHide && _placement.Edge != DockEdge.Float;
+    private bool AutoHides => _behavior.AutoHide && _placement.Edge != DockEdge.Float && !IsShelf;
+
+    /// <summary>A desktop shelf (see <see cref="DockBehavior.DesktopShelf"/>).</summary>
+    public bool IsShelf => _behavior.DesktopShelf;
+
+    // ------------------------------------------------------------------ desktop shelf: tidying icons away
+
+    private static readonly string[] DesktopFolders =
+        // AMPERDOCK_TEST_DESKTOP stands in for the desktop in tests, so a test never touches the real one
+        (Environment.GetEnvironmentVariable("AMPERDOCK_TEST_DESKTOP") is { Length: > 0 } test ? new[] { test }
+            : new[] { Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory) })
+            .Where(p => p.Length > 0).ToArray();
+
+    private static bool OnDesktop(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !Path.IsPathFullyQualified(path)) return false;
+        var dir = Path.GetDirectoryName(path.TrimEnd('\\'));
+        return dir is not null && DesktopFolders.Any(d => string.Equals(d.TrimEnd('\\'), dir, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Hide a desktop icon now that it lives on this shelf. Only the hidden mark changes: the file stays
+    /// exactly where it is, so every shortcut and icon that points at it keeps working.
+    /// </summary>
+    private bool TidyAway(string path)
+    {
+        try
+        {
+            var attrs = File.GetAttributes(path);
+            if ((attrs & FileAttributes.Hidden) == 0) File.SetAttributes(path, attrs | FileAttributes.Hidden);
+            NotifyDesktop(path);
+            if (!_behavior.HiddenOnDesktop.Contains(path, StringComparer.OrdinalIgnoreCase))
+                SaveBehavior(_behavior with { HiddenOnDesktop = [.. _behavior.HiddenOnDesktop, path] });
+            return true;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            App.Log(ex);
+            return false;   // e.g. an icon every user shares: it stays on the desktop too
+        }
+    }
+
+    /// <summary>Show a tidied icon on the desktop again (it came off the shelf, or the shelf went).</summary>
+    private void PutBack(string path)
+    {
+        if (!_behavior.HiddenOnDesktop.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
+        try
+        {
+            if (File.Exists(path) || Directory.Exists(path))
+            {
+                var attrs = File.GetAttributes(path);
+                if ((attrs & FileAttributes.Hidden) != 0) File.SetAttributes(path, attrs & ~FileAttributes.Hidden);
+                NotifyDesktop(path);
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { App.Log(ex); }
+        SaveBehavior(_behavior with { HiddenOnDesktop = _behavior.HiddenOnDesktop.Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase)).ToList() });
+    }
+
+    /// <summary>Before the shelf is removed: every icon it tidied goes back on the desktop.</summary>
+    public void PutEverythingBack()
+    {
+        foreach (var path in _behavior.HiddenOnDesktop.ToList()) PutBack(path);
+    }
+
+    /// <summary>Tell Explorer the icon's attributes changed, so the desktop redraws it straight away.</summary>
+    private static void NotifyDesktop(string path)
+    {
+        var p = Marshal.StringToHGlobalUni(path);
+        try { SHChangeNotify(0x00000800 /* SHCNE_ATTRIBUTES */, 0x0005 /* SHCNF_PATHW */, p, 0); }
+        finally { Marshal.FreeHGlobal(p); }
+        var dir = Marshal.StringToHGlobalUni(Path.GetDirectoryName(path) ?? "");
+        try { SHChangeNotify(0x00001000 /* SHCNE_UPDATEDIR */, 0x0005, dir, 0); }
+        finally { Marshal.FreeHGlobal(dir); }
+    }
+
+    private void SaveBehavior(DockBehavior b)
+    {
+        _behavior = b;
+        _store.SetBehavior(_containerId, b);
+    }
+
+    /// <summary>An item left the dock: if this shelf had tidied it away, it goes back on the desktop.</summary>
+    private void ItemRemoved(DockItem item)
+    {
+        if (IsShelf && item.Target is { } t) PutBack(t);
+    }
 
     /// <summary>
     /// Where the hide animation is heading: 1 (tucked away) once the pointer has been gone for a moment
@@ -483,8 +603,7 @@ public sealed class DockHost : IDisposable
 
     private void SetBehavior(DockBehavior b)
     {
-        _behavior = b;
-        _store.SetBehavior(_containerId, b);
+        SaveBehavior(b);
         if (!b.Previews) HidePreview();
         _pointerLeftAt = Environment.TickCount64;
         Kick();
@@ -620,6 +739,7 @@ public sealed class DockHost : IDisposable
             var w = _m.IconSize * 4;
             bg = new RectF(center - w / 2, _frame.Thickness - _m.BandHeight, w, _m.BandHeight);
         }
+        bg = WithRoom(bg);
 
         var icons = new List<IconDraw>(order.Count + 1);
         var indicators = new List<IndicatorDraw>();
@@ -638,7 +758,7 @@ public sealed class DockHost : IDisposable
         if (draggedId is not null && _pointerX is float px && _pointerY is float py)
         {
             var s = _m.IconSize * 1.1f;
-            icons.Add(new IconDraw(draggedId, _frame.ToWindow(new RectF(px - s / 2, py - s / 2, s, s)), IsRemoveGesture() ? 0.4f : 0.85f, false));
+            icons.Add(new IconDraw(draggedId, _frame.ToWindow(new RectF(px - s / 2, py - s / 2, s, s)), IsRemoveGesture() ? 0.4f : 0.85f, false, NoReflection: true));
         }
 
         LabelDraw? label = null;
@@ -646,7 +766,8 @@ public sealed class DockHost : IDisposable
         if (_toast is not null && Environment.TickCount64 < _toastUntil)
             label = LabelAt(_toast, center, bg.Y - gap);
         else if (order.Count == 0 && !_dragging && HintVisible)
-            label = LabelAt(_frame.Vertical ? "Drop apps here" : "Drop apps here and they'll stay put.", center, bg.Y - gap);
+            label = LabelAt(IsShelf ? (_frame.Vertical ? "Drop desktop icons here" : "Drop desktop icons here to tidy them away.")
+                : _frame.Vertical ? "Drop apps here" : "Drop apps here and they'll stay put.", center, bg.Y - gap);
         else if (!_dragging && !_movingDock && _pointerX is float hx && _pointerY is float hy)
         {
             var hit = DockLayout.HitTest(rects, hx, hy, _m.Spacing / 2);
@@ -659,9 +780,11 @@ public sealed class DockHost : IDisposable
         }
 
         var (decor, extent) = Decorations(bg);
+        var attach = Attachments.Select(a => a.ToDraw()).ToList();
         _renderer.Draw(new DockScene(_frame.ToWindow(bg), _appearance.RadiusFor(bg.H), icons, indicators, label, _scale,
             _frame.Edge, _appearance.Shape == DockShapes.Leaf ? BandShape.Leaf : BandShape.Rounded,
-            Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor), _style);
+            Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor,
+            Attach: attach, Reflection: _appearance.Reflection / 100f), _style);
         _lastBackground = bg;
         var grew = extent != _lastExtent;
         _lastExtent = extent;
@@ -675,6 +798,18 @@ public sealed class DockHost : IDisposable
     /// dock-space box that holds the band plus everything that sticks out of it (leaf tips, ears, pictures).
     /// An invisible dock (opacity 0) shows no decorations.
     /// </summary>
+    /// <summary>The theme's cups, rings and moons (only on rounded docks you can see).</summary>
+    private IEnumerable<AttachInfo> Attachments =>
+        _appearance.Opacity > 0 && _appearance.Shape == DockShapes.Rounded && Theme is { } t ? t.Attach : [];
+
+    /// <summary>The band, lengthened at the ends where the theme's attachments need the room.</summary>
+    private RectF WithRoom(RectF bg)
+    {
+        if (!Attachments.Any() || Theme is not { } t) return bg;
+        float start = t.RoomStart * bg.H, end = t.RoomEnd * bg.H;
+        return new RectF(bg.X - start, bg.Y, bg.W + start + end, bg.H);
+    }
+
     private (List<DecorDraw> decor, RectF extent) Decorations(RectF bg)
     {
         var list = new List<DecorDraw>();
@@ -684,6 +819,30 @@ public sealed class DockHost : IDisposable
             x0 -= DockRenderer.LeafTip * bg.H;
             x1 += (DockRenderer.LeafTip + 0.36f) * bg.H;   // tip plus the stem
             y0 -= 0.08f * bg.H;
+        }
+        foreach (var a in Attachments)
+        {
+            // how far each one reaches past the band (matches the renderer's geometry)
+            float H = bg.H, r = a.Size * H;
+            switch (a.Kind)
+            {
+                case "cup": y0 = MathF.Min(y0, bg.Y + 0.02f * H - 0.45f * r - 1.28f * r); break;
+                case "ring":
+                {
+                    y0 = MathF.Min(y0, bg.Y - 0.25f * r - 1.15f * r);
+                    var cx = a.From == "end" ? bg.Right - a.Along * H : bg.X + a.Along * H;
+                    var reach = 1.95f * r + 0.2f * r + 3;   // the ring's half-width plus its rounded, outlined end
+                    x0 = MathF.Min(x0, cx - reach);
+                    x1 = MathF.Max(x1, cx + reach);
+                    break;
+                }
+                case "moon":
+                    if (a.From == "end") x1 = MathF.Max(x1, bg.Right + 1.3f * r + 2);
+                    else x0 = MathF.Min(x0, bg.X - 1.3f * r - 2);
+                    y0 = MathF.Min(y0, bg.Y + 0.46f * H - r - 2);
+                    y1 = MathF.Max(y1, bg.Y + 0.46f * H + r + 2);
+                    break;
+            }
         }
         if (_appearance.Opacity > 0 && Theme is { } theme)
         {
@@ -801,6 +960,18 @@ public sealed class DockHost : IDisposable
             case WM_MOUSEACTIVATE:
                 return MA_NOACTIVATE;
 
+            case WM_WINDOWPOSCHANGING when IsShelf:
+            {
+                // a shelf stays at the bottom of the pile, under every window, whatever asks it to move up
+                var wp = Marshal.PtrToStructure<WINDOWPOS>(l);
+                if ((wp.flags & SWP_NOZORDER) == 0)
+                {
+                    wp.hwndInsertAfter = HWND_BOTTOM;
+                    Marshal.StructureToPtr(wp, l, false);
+                }
+                break;
+            }
+
             case WM_SETCURSOR:
             {
                 // a "move" cursor over empty dock space hints that you can drag the dock itself
@@ -910,6 +1081,7 @@ public sealed class DockHost : IDisposable
             case WM_DPICHANGED:
             case WM_DISPLAYCHANGE:
             case WM_SETTINGCHANGE:   // the work area moves when the taskbar changes size/position
+                if ((uint)w == 0x0014) Looks.WallpaperWatcher.Shared.Check();   // SPI_SETDESKWALLPAPER: a new wallpaper
                 Place();
                 Kick();
                 return 0;
@@ -968,8 +1140,9 @@ public sealed class DockHost : IDisposable
         if (IsRemoveGestureAt(_pointerY))
         {
             _store.RemoveItem(item.Id);   // undo comes with the toast component later
+            ItemRemoved(item);
             Reload();
-            Toast($"Removed {item.Label}");
+            Toast(IsShelf && OnDesktop(item.Target) ? $"{item.Label} is back on the desktop" : $"Removed {item.Label}");
             return;
         }
 
@@ -1025,13 +1198,14 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14, NewShelf = 15;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         if (hit >= 0)
         {
             AppendMenu(menu, MF_STRING, Edit, "&Edit name, location and icon…");
             AppendMenu(menu, MF_STRING, OpenLocation, "&Open file location");
-            AppendMenu(menu, MF_STRING, Remove, "&Remove from dock");
+            AppendMenu(menu, MF_STRING, Remove, IsShelf && _behavior.HiddenOnDesktop.Contains(_items[hit].Target ?? "", StringComparer.OrdinalIgnoreCase)
+                ? "&Remove (put back on the desktop)" : "&Remove from dock");
             AppendMenu(menu, MF_SEPARATOR, 0, null);
         }
         AppendMenu(menu, MF_STRING, AddApp, "&Add an app…");
@@ -1048,12 +1222,13 @@ public sealed class DockHost : IDisposable
         AppendMenu(position, MF_SEPARATOR, 0, null);
         AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
         AppendMenu(menu, MF_POPUP, position, "&Position");
-        AppendMenu(menu, _placement.Edge == DockEdge.Float ? MF_STRING | MF_GRAYED : MF_STRING | (_behavior.AutoHide ? MF_CHECKED : 0),
+        AppendMenu(menu, _placement.Edge == DockEdge.Float || IsShelf ? MF_STRING | MF_GRAYED : MF_STRING | (_behavior.AutoHide ? MF_CHECKED : 0),
             AutoHide, "Auto-&hide");
         AppendMenu(menu, MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
         AppendMenu(menu, MF_STRING, Appearance, "Dock appearan&ce…");
         AppendMenu(menu, MF_STRING, NewDock, "&New dock");
-        if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, "Remove &this dock…");
+        AppendMenu(menu, MF_STRING, NewShelf, "New desktop &shelf");
+        if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, IsShelf ? "Remove &this shelf…" : "Remove &this dock…");
         AppendMenu(menu, MF_STRING, Looks, "&Look packs: cursors, trails, folder icons…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, MF_STRING, Quit, "&Quit AmperDock");
@@ -1073,8 +1248,9 @@ public sealed class DockHost : IDisposable
             case Remove when hit >= 0:
                 var item = _items[hit];
                 _store.RemoveItem(item.Id);
+                ItemRemoved(item);
                 Reload();
-                Toast($"Removed {item.Label}");
+                Toast(IsShelf && OnDesktop(item.Target) ? $"{item.Label} is back on the desktop" : $"Removed {item.Label}");
                 break;
             case OpenLocation when hit >= 0:
                 var t = _items[hit].Target;
@@ -1115,6 +1291,9 @@ public sealed class DockHost : IDisposable
                 break;
             case NewDock:
                 _commands.NewDock(this);
+                break;
+            case NewShelf:
+                _commands.NewShelf(this);
                 break;
             case RemoveDock when !IsMain:
                 _commands.RemoveDock(this);
@@ -1202,6 +1381,9 @@ public sealed class DockHost : IDisposable
         var fresh = items.Where(n => n.Target is null || !already.Contains(n.Target)).ToList();
         if (fresh.Count == 0) { Toast(items.Count == 1 ? "That's already on the dock." : "Those are already on the dock."); return; }
         _store.InsertItems(_containerId, index, fresh);
+        if (IsShelf)
+            foreach (var n in fresh)
+                if (OnDesktop(n.Target)) TidyAway(n.Target!);
         Reload();
         Toast(fresh.Count == 1 ? $"Added {fresh[0].Label}" : $"Added {fresh.Count} items");
     }
@@ -1225,6 +1407,7 @@ public sealed class DockHost : IDisposable
     public void Dispose()
     {
         TaskWatcher.Shared.Changed -= _onTasks;
+        Looks.WallpaperWatcher.Shared.Changed -= _onWallpaper;
         _previewTimer.Stop();
         _hintTimer.Stop();
         _preview?.Close();

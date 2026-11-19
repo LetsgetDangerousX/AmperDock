@@ -24,6 +24,22 @@ public sealed record DecorInfo
     public bool Mirror { get; init; }
 }
 
+/// <summary>A shape that grows out of the dock itself (a cup, a planet's ring, a moon). See tools/build_dockthemes.py.</summary>
+public sealed record AttachInfo
+{
+    public string Kind { get; init; } = "cup";
+    public string From { get; init; } = "start";
+    public float Along { get; init; }
+    public float Size { get; init; } = 0.5f;
+    public string? Sprite { get; init; }
+    public string? Color { get; init; }
+
+    public Attachment ToDraw() => new(
+        Kind switch { "ring" => AttachKind.Ring, "moon" => AttachKind.Moon, _ => AttachKind.Cup },
+        From == "end", Along, Size, Sprite is null ? null : "theme:" + Sprite,
+        Color is { } c && DockAppearance.IsHexColor(c) ? Argb.FromRgba(c) : default);
+}
+
 /// <summary>A built-in dock theme: a starting look plus its decorations.</summary>
 public sealed record DockThemeInfo
 {
@@ -36,6 +52,11 @@ public sealed record DockThemeInfo
     public bool Ears { get; init; }
     public bool Snow { get; init; }
     public List<DecorInfo> Decor { get; init; } = [];
+    public List<AttachInfo> Attach { get; init; } = [];
+
+    /// <summary>Extra dock length at each end, in band heights, so attachments don't cover icons.</summary>
+    public float RoomStart { get; init; }
+    public float RoomEnd { get; init; }
 
     /// <summary>The theme's look as a DockAppearance (the JSON uses the same snake_case names).</summary>
     public DockAppearance Appearance => DockAppearance.FromJson(Look.GetRawText());

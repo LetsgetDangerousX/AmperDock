@@ -75,6 +75,10 @@ public partial class AppearanceWindow : Window
         OutlineWidth.Value = a.OutlineWidth;
         Angle.Value = a.GradientAngle;
         DecorationsBox.IsChecked = a.Decorations;
+        ReflectBox.IsChecked = a.Reflection > 0;
+        MatchBox.IsChecked = a.MatchWallpaper;
+        TintSlider.Value = a.IconTint;
+        if (a.Reflection > 0) ReflectSlider.Value = a.Reflection;
         _current = a;
         SyncAll();
         _loading = false;
@@ -88,6 +92,9 @@ public partial class AppearanceWindow : Window
         OutlineWidth = (float)OutlineWidth.Value,
         GradientAngle = (float)Angle.Value,
         Decorations = DecorationsBox.IsChecked == true,
+        Reflection = ReflectBox.IsChecked == true ? (int)Math.Round(ReflectSlider.Value) : 0,
+        MatchWallpaper = MatchBox.IsChecked == true,
+        IconTint = (int)Math.Round(TintSlider.Value),
     };
 
     private void Apply(DockAppearance a)
@@ -104,6 +111,10 @@ public partial class AppearanceWindow : Window
         OpacityValue.Text = a.Opacity == 0 ? "Invisible" : $"{a.Opacity}%";
         GradientPanel.Visibility = a.Style == DockStyles.Gradient ? Visibility.Visible : Visibility.Collapsed;
         OutlineWidthRow.IsEnabled = a.Outline || a.Style == DockStyles.Outline;
+        ReflectRow.IsEnabled = a.Reflection > 0;
+        TintPanel.IsEnabled = a.MatchWallpaper;
+        // colours come from the wallpaper while matching, so the picker steps aside
+        Slots.IsEnabled = Picker.IsEnabled = PaletteSwatches.IsEnabled = UseTheme.IsEnabled = !a.MatchWallpaper;
         if (_slot == Slot.GradientEnd && a.Style != DockStyles.Gradient) _slot = Slot.Fill;
         if (_slot == Slot.Fill && a.Style == DockStyles.Outline) _slot = Slot.Outline;
 
@@ -126,7 +137,8 @@ public partial class AppearanceWindow : Window
     {
         var hex = SlotValue(_slot);
         PickerTitle.Text = SlotName(_slot);
-        PickerHint.Text = hex is null ? "Following the theme. Pick any colour to customise." : $"Custom: {hex}";
+        PickerHint.Text = _current.MatchWallpaper ? "Your wallpaper is choosing the colours. Turn off Match my wallpaper to pick your own."
+            : hex is null ? "Following the theme. Pick any colour to customise." : $"Custom: {hex}";
         UseTheme.Visibility = hex is null ? Visibility.Collapsed : Visibility.Visible;
         var wasLoading = _loading;
         _loading = true;
@@ -325,6 +337,7 @@ public partial class AppearanceWindow : Window
         {
             ["paw"] = "Paw", ["dot"] = "Dot", ["mushroom"] = "Mushroom", ["star"] = "Star",
             ["leaf"] = "Leaf", ["pumpkin"] = "Pumpkin", ["petal"] = "Petal", ["heart"] = "Heart",
+            ["planet"] = "Planet", ["moon"] = "Moon", ["twinkle"] = "Twinkle",
         };
         foreach (var (id, name) in names)
         {
