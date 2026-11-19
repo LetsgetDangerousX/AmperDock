@@ -23,6 +23,9 @@ namespace AmperDock.App.Dock;
 /// "click the running app again to minimise it" works. The window region shrinks to the band at rest so
 /// the space next to it stays click-through. Drag empty dock space (or Alt+drag anywhere) to move the dock.
 /// </summary>
+/// <summary>What a dock's menu can ask the app to do (things that involve other windows or other docks).</summary>
+public sealed record DockCommands(Action<DockHost> OpenAppearance, Action OpenLooks, Action<DockHost> NewDock, Action<DockHost> RemoveDock);
+
 public sealed class DockHost : IDisposable
 {
     private const string ClassName = "AmperDock.Dock";
@@ -36,8 +39,7 @@ public sealed class DockHost : IDisposable
     private readonly SettingsStore _store;
     private readonly ThemeManager _theme;
     private readonly string _containerId;
-    private readonly Action<DockHost> _openAppearance;
-    private readonly Action _openLooks;
+    private readonly DockCommands _commands;
     private readonly nint _hwnd;
     private readonly DockRenderer _renderer;
     private readonly DispatcherTimer _taskTimer;
@@ -72,13 +74,12 @@ public sealed class DockHost : IDisposable
     private string? _toast;
     private long _toastUntil;
 
-    public DockHost(SettingsStore store, ThemeManager theme, string containerId, Action<DockHost> openAppearance, Action openLooks)
+    public DockHost(SettingsStore store, ThemeManager theme, string containerId, DockCommands commands)
     {
         _store = store;
         _theme = theme;
         _containerId = containerId;
-        _openAppearance = openAppearance;
-        _openLooks = openLooks;
+        _commands = commands;
         _appearance = store.GetAppearance(containerId);
         _placement = store.GetPlacement(containerId);
         _baseMetrics = theme.DockMetrics();
@@ -127,6 +128,14 @@ public sealed class DockHost : IDisposable
     // ------------------------------------------------------------------ appearance
 
     public DockAppearance Appearance => _appearance;
+
+    public string ContainerId => _containerId;
+    public bool IsMain => _containerId == SettingsStore.MainDockId;
+    public DockPlacement Placement => _placement with { MonitorKey = _monitorKey };
+    public int ItemCount => _items.Count;
+
+    /// <summary>The work area of the dock's monitor, in screen pixels.</summary>
+    public RectF WorkArea => _work;
 
     /// <summary>Show an appearance on the live dock without saving it (the Appearance window's live preview).</summary>
     public void PreviewAppearance(DockAppearance appearance)
@@ -267,14 +276,12 @@ public sealed class DockHost : IDisposable
     private void Reload()
     {
         _items = _store.GetItems(_containerId).ToList();
-        var iconPx = (int)Math.Min(256, MathF.Ceiling(_m.MagnifiedSize / 32) * 32);
+        var iconPx = IconPixelSize;
         foreach (var item in _items)
         {
             _size.TryAdd(item.Id, _m.IconSize);
             if (_renderer.HasIcon(item.Id)) continue;
-            var src = item.IconPath ?? item.Target;
-            var px = src is null ? null : ShellIcons.Get(src, Math.Max(iconPx, 128));
-            if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
+            LoadIcon(item, iconPx);
         }
         foreach (var gone in _size.Keys.Except(_items.Select(i => i.Id)).ToList()) _size.Remove(gone);
         RefreshTasks();
@@ -304,14 +311,18 @@ public sealed class DockHost : IDisposable
     /// <summary>Fetch every item's icon again (after a folder's icon was changed, for example).</summary>
     public void RefreshIcons()
     {
-        var iconPx = (int)Math.Min(256, MathF.Ceiling(_m.MagnifiedSize / 32) * 32);
+        var iconPx = IconPixelSize;
         foreach (var item in _items)
-        {
-            var src = item.IconPath ?? item.Target;
-            var px = src is null ? null : ShellIcons.Get(src, Math.Max(iconPx, 128));
-            if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
-        }
+            LoadIcon(item, iconPx);
         Kick();
+    }
+
+    private int IconPixelSize => (int)Math.Min(256, MathF.Ceiling(_m.MagnifiedSize / 32) * 32);
+
+    private void LoadIcon(DockItem item, int iconPx)
+    {
+        var px = ShellIcons.ForItem(item.IconPath, item.Target, Math.Max(iconPx, 128));
+        if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -426,7 +437,7 @@ public sealed class DockHost : IDisposable
         if (_toast is not null && Environment.TickCount64 < _toastUntil)
             label = LabelAt(_toast, center, bg.Y - gap);
         else if (order.Count == 0 && !_dragging)
-            label = LabelAt("Drop apps here and they'll stay put.", center, bg.Y - gap);
+            label = LabelAt(_frame.Vertical ? "Drop apps here" : "Drop apps here and they'll stay put.", center, bg.Y - gap);
         else if (!_dragging && !_movingDock && _pointerX is float hx && _pointerY is float hy)
         {
             var hit = DockLayout.HitTest(rects, hx, hy, _m.Spacing / 2);
@@ -456,7 +467,9 @@ public sealed class DockHost : IDisposable
         RectF r;
         if (expanded)
             r = new RectF(0, 0, _frame.Length, t);
-        else if (_items.Count == 0)   // keep the first-run hint visible
+        else if (_items.Count == 0 && _frame.Vertical)   // keep the empty-dock hint visible: beside a side dock...
+            r = new RectF(bg.X - 2, 0, bg.W + 4, t);
+        else if (_items.Count == 0)                        // ...above a horizontal one
             r = new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale);
         else
             r = new RectF(bg.X - 2, bg.Y - 2, bg.W + 4, t - bg.Y + 2);
@@ -659,6 +672,7 @@ public sealed class DockHost : IDisposable
 
     private void LaunchOrActivate(DockItem item, bool forceNew)
     {
+        forceNew |= item.AllowMultiple;
         if (!forceNew && _running.TryGetValue(item.Id, out var windows) && windows.Count > 0)
         {
             Tasks.Activate(windows);
@@ -698,31 +712,34 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Looks = 8, Appearance = 9, Quit = 11;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         if (hit >= 0)
         {
-            AppendMenu(menu, MF_STRING, OpenLocation, "Open file location");
-            AppendMenu(menu, MF_STRING, Remove, "Remove from dock");
+            AppendMenu(menu, MF_STRING, Edit, "&Edit name, location and icon…");
+            AppendMenu(menu, MF_STRING, OpenLocation, "&Open file location");
+            AppendMenu(menu, MF_STRING, Remove, "&Remove from dock");
             AppendMenu(menu, MF_SEPARATOR, 0, null);
         }
-        AppendMenu(menu, MF_STRING, AddApp, "Add an app or file…");
-        AppendMenu(menu, MF_STRING, AddFolder, "Add a folder…");
+        AppendMenu(menu, MF_STRING, AddApp, "&Add an app or file…");
+        AppendMenu(menu, MF_STRING, AddFolder, "Add a &folder…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
 
         uint Check(DockEdge e) => MF_STRING | (_placement.Edge == e ? MF_CHECKED : 0);
-        AppendMenu(position, Check(DockEdge.Bottom), PosBottom, "Bottom");
-        AppendMenu(position, Check(DockEdge.Top), PosTop, "Top");
-        AppendMenu(position, Check(DockEdge.Left), PosLeft, "Left");
-        AppendMenu(position, Check(DockEdge.Right), PosRight, "Right");
-        AppendMenu(position, Check(DockEdge.Float), PosFloat, "Floating");
+        AppendMenu(position, Check(DockEdge.Bottom), PosBottom, "&Bottom");
+        AppendMenu(position, Check(DockEdge.Top), PosTop, "&Top");
+        AppendMenu(position, Check(DockEdge.Left), PosLeft, "&Left");
+        AppendMenu(position, Check(DockEdge.Right), PosRight, "&Right");
+        AppendMenu(position, Check(DockEdge.Float), PosFloat, "&Floating");
         AppendMenu(position, MF_SEPARATOR, 0, null);
         AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
-        AppendMenu(menu, MF_POPUP, position, "Position");
-        AppendMenu(menu, MF_STRING, Appearance, "Dock appearance…");
-        AppendMenu(menu, MF_STRING, Looks, "Look packs: cursors, trails, folder icons…");
+        AppendMenu(menu, MF_POPUP, position, "&Position");
+        AppendMenu(menu, MF_STRING, Appearance, "Dock appearan&ce…");
+        AppendMenu(menu, MF_STRING, NewDock, "&New dock");
+        if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, "Remove &this dock…");
+        AppendMenu(menu, MF_STRING, Looks, "&Look packs: cursors, trails, folder icons…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
-        AppendMenu(menu, MF_STRING, Quit, "Quit AmperDock");
+        AppendMenu(menu, MF_STRING, Quit, "&Quit AmperDock");
 
         var (wx, wy) = _frame.ToWindow(x, y);
         var pt = new POINT { X = (int)wx, Y = (int)wy };
@@ -744,6 +761,9 @@ public sealed class DockHost : IDisposable
                 if (t is not null && (File.Exists(t) || Directory.Exists(t)))
                     Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{t}\"") { UseShellExecute = true })?.Dispose();
                 break;
+            case Edit when hit >= 0:
+                EditItem(_items[hit]);
+                break;
             case AddApp:
                 AddFromPicker(folder: false, after: hit);
                 break;
@@ -760,10 +780,16 @@ public sealed class DockHost : IDisposable
                     (int)(_work.X + _work.W / 2), (int)(_work.Bottom - _work.H * 0.25f)), save: true);
                 break;
             case Appearance:
-                _openAppearance(this);
+                _commands.OpenAppearance(this);
+                break;
+            case NewDock:
+                _commands.NewDock(this);
+                break;
+            case RemoveDock when !IsMain:
+                _commands.RemoveDock(this);
                 break;
             case Looks:
-                _openLooks();
+                _commands.OpenLooks();
                 break;
             case Quit:
                 System.Windows.Application.Current.Shutdown();
@@ -771,8 +797,27 @@ public sealed class DockHost : IDisposable
         }
     }
 
+    private readonly Dictionary<string, Settings.ItemWindow> _editors = new();
+
+    /// <summary>Open the item editor (one window per item; a second request brings it forward).</summary>
+    private void EditItem(DockItem item)
+    {
+        if (_editors.TryGetValue(item.Id, out var open)) { open.Activate(); return; }
+        var win = new Settings.ItemWindow(_store, item, saved =>
+        {
+            Reload();
+            LoadIcon(saved, IconPixelSize);
+            Kick();
+            Toast($"Saved {saved.Label}");
+        });
+        _editors[item.Id] = win;
+        win.Closed += (_, _) => _editors.Remove(item.Id);
+        win.Show();
+        win.Activate();
+    }
+
     /// <summary>
-    /// "Add an app or file…" / "Add a folder…": the standard Windows pickers. New items go after the
+    /// "&Add an app or file…" / "Add a &folder…": the standard Windows pickers. New items go after the
     /// item you right-clicked, or at the end of the dock.
     /// </summary>
     private void AddFromPicker(bool folder, int after)

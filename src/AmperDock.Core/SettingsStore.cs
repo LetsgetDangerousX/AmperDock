@@ -168,6 +168,51 @@ public sealed class SettingsStore : IDisposable
         tx.Commit();
     }
 
+    /// <summary>Save an edited item: name, type, location, start options and icon. Order and container are unchanged.</summary>
+    public void UpdateItem(DockItem item) => Exec("""
+        UPDATE items SET type = $t, label = $l, target = $tg, arguments = $a, start_in = $s, icon_path = $i,
+               run_as_admin = $ra, allow_multiple = $am, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE id = $id
+        """, null, ("$t", item.Type), ("$l", item.Label), ("$tg", (object?)Blank(item.Target) ?? DBNull.Value),
+        ("$a", (object?)Blank(item.Arguments) ?? DBNull.Value), ("$s", (object?)Blank(item.StartIn) ?? DBNull.Value),
+        ("$i", (object?)Blank(item.IconPath) ?? DBNull.Value), ("$ra", item.RunAsAdmin ? 1 : 0), ("$am", item.AllowMultiple ? 1 : 0),
+        ("$id", item.Id));
+
+    private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    // ---------------------------------------------------------------- docks (top-level containers)
+
+    /// <summary>Every dock, in the order they were made. The main dock always exists.</summary>
+    public IReadOnlyList<DockInfo> GetDocks()
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT id, name, enabled FROM containers WHERE kind = 'dock' ORDER BY created_at, id";
+        using var r = cmd.ExecuteReader();
+        var list = new List<DockInfo>();
+        while (r.Read()) list.Add(new DockInfo(r.GetString(0), r.GetString(1), r.GetInt64(2) != 0));
+        return list;
+    }
+
+    /// <summary>A new, empty dock at the given place. Returns its id.</summary>
+    public string CreateDock(string name, DockPlacement placement, DockAppearance? appearance = null)
+    {
+        var id = Guid.NewGuid().ToString();
+        Exec("INSERT INTO containers (id, kind, name, edge, alignment) VALUES ($id, 'dock', $n, 'bottom', 0.5)", null, ("$id", id), ("$n", name));
+        SetPlacement(id, placement);
+        if (appearance is not null) SetAppearance(id, appearance);
+        return id;
+    }
+
+    public void RenameDock(string id, string name) =>
+        Exec("UPDATE containers SET name = $n WHERE id = $id AND kind = 'dock'", null, ("$n", name.Trim()), ("$id", id));
+
+    /// <summary>Delete a dock and everything on it. The main dock can't be deleted.</summary>
+    public void DeleteDock(string id)
+    {
+        if (id == MainDockId) throw new InvalidOperationException("The main dock can't be deleted.");
+        Exec("DELETE FROM containers WHERE id = $id AND kind = 'dock'", null, ("$id", id));
+    }
+
     /// <summary>Remove an item. Nested containers opened from it cascade away with it.</summary>
     public void RemoveItem(string itemId) => Exec("DELETE FROM items WHERE id = $id", null, ("$id", itemId));
 

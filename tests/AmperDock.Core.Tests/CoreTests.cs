@@ -203,3 +203,64 @@ public class LayoutTests
         Assert.Equal(3, SortOrder.ForIndex([1, 2], 2));
     }
 }
+
+public sealed class ItemAndDockTests : IDisposable
+{
+    private readonly string _path = Path.Combine(Path.GetTempPath(), $"amperdock-test-{Guid.NewGuid():N}.db");
+    public void Dispose() { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); try { File.Delete(_path); } catch (IOException) { } }
+
+    [Fact]
+    public void UpdateItem_saves_every_editable_field_and_keeps_order()
+    {
+        using var s = new SettingsStore(_path);
+        s.InsertItems(SettingsStore.MainDockId, 0, [new NewItem(ItemTypes.Program, "A", @"C:\a.exe"), new NewItem(ItemTypes.Program, "B", @"C:\b.exe")]);
+        var a = s.GetItems(SettingsStore.MainDockId)[0];
+        s.UpdateItem(a with { Label = "Renamed", Type = ItemTypes.Folder, Target = @"C:\Users", Arguments = "  ", StartIn = null,
+            IconPath = @"%SystemRoot%\System32\imageres.dll,3", RunAsAdmin = true, AllowMultiple = true });
+        var items = s.GetItems(SettingsStore.MainDockId);
+        Assert.Equal("Renamed", items[0].Label);
+        Assert.Equal(ItemTypes.Folder, items[0].Type);
+        Assert.Equal(@"C:\Users", items[0].Target);
+        Assert.Null(items[0].Arguments);   // blank is stored as null
+        Assert.Equal(@"%SystemRoot%\System32\imageres.dll,3", items[0].IconPath);
+        Assert.True(items[0].RunAsAdmin && items[0].AllowMultiple);
+        Assert.Equal("B", items[1].Label);
+    }
+
+    [Fact]
+    public void Docks_can_be_created_renamed_and_deleted_with_their_items()
+    {
+        using var s = new SettingsStore(_path);
+        Assert.Single(s.GetDocks());
+        var id = s.CreateDock("Games", new DockPlacement(DockEdge.Left, null, 0.3f));
+        s.InsertItems(id, 0, [new NewItem(ItemTypes.Program, "G", @"C:\g.exe")]);
+        Assert.Equal(DockEdge.Left, s.GetPlacement(id).Edge);
+        Assert.Equal(0.3f, s.GetPlacement(id).Alignment, 3);
+        s.RenameDock(id, " Play ");
+        Assert.Equal("Play", s.GetDocks().Single(d => d.Id == id).Name);
+        Assert.Empty(s.GetItems(SettingsStore.MainDockId));
+        s.DeleteDock(id);
+        Assert.Single(s.GetDocks());
+        Assert.Empty(s.GetItems(id));
+        Assert.Throws<InvalidOperationException>(() => s.DeleteDock(SettingsStore.MainDockId));
+    }
+
+    [Theory]
+    [InlineData(@"C:\Windows\System32\shell32.dll,4", @"C:\Windows\System32\shell32.dll", 4, true)]
+    [InlineData(@"%SystemRoot%\System32\imageres.dll,-102", @"%SystemRoot%\System32\imageres.dll", -102, true)]
+    [InlineData(@"""C:\Program Files\App\app.exe"",0", @"C:\Program Files\App\app.exe", 0, true)]
+    [InlineData(@"C:\Pics\cat, the best.png", @"C:\Pics\cat, the best.png", 0, false)]
+    [InlineData(@"C:\Pics\kitty.png", @"C:\Pics\kitty.png", 0, false)]
+    [InlineData(@"C:\Icons\paw.ico", @"C:\Icons\paw.ico", 0, true)]
+    public void IconRef_parses_windows_icon_locations(string value, string file, int index, bool resource)
+    {
+        var r = IconRef.Parse(value)!.Value;
+        Assert.Equal(file, r.File);
+        Assert.Equal(index, r.Index);
+        Assert.Equal(resource, r.IsIconResource);
+        Assert.Equal(r, IconRef.Parse(r.ToString()));   // round-trips through the database
+    }
+
+    [Fact]
+    public void IconRef_blank_is_none() => Assert.Null(IconRef.Parse("  "));
+}

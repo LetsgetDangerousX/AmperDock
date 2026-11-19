@@ -19,7 +19,8 @@ public partial class App : Application
     private Mutex? _single;
     private SettingsStore? _store;
     private ThemeManager? _theme;
-    private DockHost? _dock;
+    private readonly List<DockHost> _docks = [];
+    private readonly Dictionary<string, AppearanceWindow> _appearanceWindows = new();
     private LookService? _looks;
     private LookPacksWindow? _looksWindow;
     private GalleryWindow? _gallery;
@@ -48,11 +49,11 @@ public partial class App : Application
             Shutdown();
             return;
         }
-        _dock = new DockHost(_store, _theme, SettingsStore.MainDockId, OpenAppearance, OpenLooks);
-        _looks.Changed += () => _dock?.RefreshIcons();   // folder items pick up new folder icons
+        foreach (var d in _store.GetDocks().Where(d => d.Enabled)) StartDock(d.Id);
+        _looks.Changed += () => { foreach (var d in _docks) d.RefreshIcons(); };   // folder items pick up new folder icons
         _looks.Start();
         if (e.Args.Contains("--looks")) OpenLooks();
-        if (e.Args.Contains("--appearance")) OpenAppearance(_dock);
+        if (e.Args.Contains("--appearance") && _docks.Count > 0) OpenAppearance(_docks[0]);
     }
 
     /// <summary>A brand-new dock gets a couple of apps every Windows install has, so it isn't empty and confusing.</summary>
@@ -85,19 +86,58 @@ public partial class App : Application
         _looksWindow.Show();
     }
 
-    private AppearanceWindow? _appearance;
+    private void StartDock(string id)
+    {
+        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock))); }
+        catch (Exception ex) { Log(ex); }
+    }
 
     private void OpenAppearance(DockHost dock)
     {
-        if (_appearance is { IsLoaded: true }) { _appearance.Activate(); return; }
-        _appearance = new AppearanceWindow(dock, _store!);
-        _appearance.Show();
+        if (_appearanceWindows.TryGetValue(dock.ContainerId, out var open)) { open.Activate(); return; }
+        var win = new AppearanceWindow(dock, _store!);
+        if (!dock.IsMain) win.Title = $"Dock appearance: {_store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name}";
+        _appearanceWindows[dock.ContainerId] = win;
+        win.Closed += (_, _) => _appearanceWindows.Remove(dock.ContainerId);
+        win.Show();
+    }
+
+    /// <summary>
+    /// "New dock": an empty dock on the same screen, on an edge no other dock uses there (left, right,
+    /// top, then bottom), or floating in the middle when every edge is taken. It starts with the same look.
+    /// </summary>
+    private void NewDock(DockHost from)
+    {
+        var here = from.Placement.MonitorKey;
+        var used = _docks.Where(d => d.Placement.MonitorKey == here).Select(d => d.Placement.Edge).ToHashSet();
+        var edge = new[] { DockEdge.Left, DockEdge.Right, DockEdge.Top, DockEdge.Bottom }.Cast<DockEdge?>().FirstOrDefault(e => !used.Contains(e!.Value));
+        var work = from.WorkArea;
+        var placement = edge is { } free
+            ? new DockPlacement(free, here, 0.5f)
+            : new DockPlacement(DockEdge.Float, here, 0.5f, (int)(work.X + work.W / 2), (int)(work.Y + work.H / 2));
+        var n = _store!.GetDocks().Count + 1;
+        var id = _store.CreateDock($"Dock {n}", placement, from.Appearance);
+        StartDock(id);
+    }
+
+    private void RemoveDock(DockHost dock)
+    {
+        if (dock.IsMain) return;
+        var name = _store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name ?? "this dock";
+        var what = dock.ItemCount switch { 0 => "", 1 => " and the 1 item on it", var c => $" and the {c} items on it" };
+        var answer = MessageBox.Show($"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}Only the dock goes. Your apps, files and folders aren't touched.",
+            "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK) return;
+        if (_appearanceWindows.TryGetValue(dock.ContainerId, out var win)) win.Close();
+        _docks.Remove(dock);
+        dock.Dispose();
+        _store.DeleteDock(dock.ContainerId);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _looks?.Dispose();
-        _dock?.Dispose();
+        foreach (var d in _docks) d.Dispose();
         _store?.Dispose();
         _single?.Dispose();
         base.OnExit(e);

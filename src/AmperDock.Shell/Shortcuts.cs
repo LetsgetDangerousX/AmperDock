@@ -47,20 +47,28 @@ public static class Shortcuts
     /// <summary>A new item for a path dropped from Explorer, the desktop or the Start menu.</summary>
     public static NewItem FromDroppedPath(string path)
     {
-        if (Directory.Exists(path))
-            return new NewItem(ItemTypes.Folder, LabelFor(path), path);
+        var type = TypeFor(path);
+        if (type == ItemTypes.Folder) return new NewItem(type, LabelFor(path), path);
+        var isExe = path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+        return new NewItem(type, LabelFor(path), path, StartIn: isExe ? Path.GetDirectoryName(path) : null);
+    }
 
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        var type = ext switch
+    /// <summary>The item type for a location: a folder, a program, a web/other link, or a document.</summary>
+    public static string TypeFor(string target)
+    {
+        var t = target.Trim().Trim('"');
+        if (Directory.Exists(t) || (t.Length is 2 or 3 && t[1] == ':')) return ItemTypes.Folder;
+        if (t.Contains("://", StringComparison.Ordinal)) return ItemTypes.Url;
+        return Path.GetExtension(t).ToLowerInvariant() switch
         {
-            ".exe" or ".lnk" or ".appref-ms" => ItemTypes.Program,
+            ".exe" or ".lnk" or ".appref-ms" or ".bat" or ".cmd" => ItemTypes.Program,
             ".url" => ItemTypes.Url,
             _ => ItemTypes.Document,
         };
-        return new NewItem(type, LabelFor(path), path, StartIn: ext == ".exe" ? Path.GetDirectoryName(path) : null);
     }
 
-    private static string LabelFor(string path)
+    /// <summary>The name a new item gets for a location ("Notepad" for notepad.exe, the folder's name...).</summary>
+    public static string LabelFor(string path)
     {
         // programs carry a friendly name in their version info ("Notepad", not "notepad")
         if (path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(path))
