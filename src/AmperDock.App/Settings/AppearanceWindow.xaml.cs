@@ -111,6 +111,7 @@ public partial class AppearanceWindow : Window
         foreach (var card in ThemeCards.Children.OfType<Border>()) Select(card, (string)card.Tag == a.Theme);
         foreach (Border card in IndicatorCards.Children) Select(card, (string)card.Tag == a.Indicator);
         foreach (RadioButton rb in BandShapes.Children) rb.IsChecked = (string)rb.Tag == a.Shape;
+        foreach (RadioButton rb in IndicatorSizes.Children) rb.IsChecked = (string)rb.Tag == a.IndicatorSize;
         CornersPanel.Visibility = a.Shape == DockShapes.Rounded ? Visibility.Visible : Visibility.Collapsed;
         var theme = DockThemeCatalog.Shared.Find(a.Theme);
         DecorationsBox.Visibility = theme is { } t && (t.Ears || t.Snow || t.Decor.Count > 0) ? Visibility.Visible : Visibility.Collapsed;
@@ -369,6 +370,12 @@ public partial class AppearanceWindow : Window
             c.Children.Add(e);
         }
         return new Viewbox { Width = 20, Height = 20, Child = c };
+    }
+
+    private void OnIndicatorSize(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        Apply(ReadSliders() with { IndicatorSize = (string)((RadioButton)sender).Tag });
     }
 
     private void OnBandShape(object sender, RoutedEventArgs e)

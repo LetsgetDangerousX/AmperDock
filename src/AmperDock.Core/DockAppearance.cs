@@ -28,6 +28,12 @@ public static class DockIndicators
     public static readonly string[] Drawn = [Paw, Dot];
     public static readonly string[] Pictures = ["mushroom", "star", "leaf", "pumpkin", "petal", "heart"];
     public static bool IsKnown(string? id) => id is not null && (Drawn.Contains(id) || Pictures.Contains(id));
+
+    public const string Small = "small", Medium = "medium", Large = "large";
+    public static readonly string[] Sizes = [Small, Medium, Large];
+
+    /// <summary>How much bigger or smaller than the theme's indicator size.</summary>
+    public static float SizeFactor(string? size) => size switch { Small => 0.7f, Large => 1.3f, _ => 1f };
 }
 
 /// <summary>
@@ -77,6 +83,9 @@ public sealed record DockAppearance
     /// <summary>Colour for the paw or dot indicator, or null for the theme's accent.</summary>
     public string? IndicatorColor { get; init; }
 
+    /// <summary>Running indicator size: small, medium or large (<see cref="DockIndicators.Sizes"/>).</summary>
+    public string IndicatorSize { get; init; } = DockIndicators.Medium;
+
     public static readonly DockAppearance Default = new();
 
     private static readonly JsonSerializerOptions Json = new()
@@ -109,6 +118,7 @@ public sealed record DockAppearance
         Shape = DockShapes.All.Contains(Shape) ? Shape : DockShapes.Rounded,
         Indicator = DockIndicators.IsKnown(Indicator) ? Indicator : DockIndicators.Paw,
         IndicatorColor = Hex(IndicatorColor),
+        IndicatorSize = DockIndicators.Sizes.Contains(IndicatorSize) ? IndicatorSize : DockIndicators.Medium,
     };
 
     private static string? Hex(string? s) => IsHexColor(s) ? s!.ToUpperInvariant() : null;

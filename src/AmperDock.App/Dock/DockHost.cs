@@ -142,9 +142,11 @@ public sealed class DockHost : IDisposable
     /// <summary>Show an appearance on the live dock without saving it (the Appearance window's live preview).</summary>
     public void PreviewAppearance(DockAppearance appearance)
     {
+        var resized = appearance.Normalised().IndicatorSize != _appearance.IndicatorSize;
         _appearance = appearance.Normalised();
         _style = ComposeStyle();
         LoadThemePictures();
+        if (resized) Place();                   // a bigger indicator makes the band taller
         SetExpanded(_expanded, force: true);   // the region follows the band, which may now be a different shape
         Render();
     }
@@ -258,7 +260,7 @@ public sealed class DockHost : IDisposable
         _work = new RectF(mon.work.Left, mon.work.Top, mon.work.Right - mon.work.Left, mon.work.Bottom - mon.work.Top);
 
         _scale = GetDpiForMonitor(mon.handle, 0, out var dpi, out _) == 0 ? dpi / 96f : GetDpiForWindow(_hwnd) / 96f;
-        _m = _baseMetrics.Scale(_scale);
+        _m = (_baseMetrics with { IndicatorSize = _baseMetrics.IndicatorSize * DockIndicators.SizeFactor(_appearance.IndicatorSize) }).Scale(_scale);
 
         var edge = _placement.Edge;
         var vertical = edge is DockEdge.Left or DockEdge.Right;

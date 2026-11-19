@@ -504,14 +504,14 @@ public sealed class DockRenderer : IDisposable
         switch (style.IndicatorKind)
         {
             case IndicatorKind.Sprite when style.IndicatorSprite is { } key && _icons.TryGetValue(key, out var bmp):
-                var size = ind.Size * (ind.Focused ? 1.45f : 1.25f);
+                var size = ind.Size * (ind.Focused ? 1.3f : 1.15f);
                 ctx.DrawBitmap(bmp, new Rect(ind.CenterX - size / 2, ind.CenterY - size / 2, size, size), ind.Focused ? 1f : 0.85f,
                     InterpolationMode.HighQualityCubic, null, null);
                 break;
             case IndicatorKind.Dot:
                 using (var brush = ctx.CreateSolidColorBrush((ind.Focused ? style.IndicatorFocused : style.Indicator).ToColor4()))
                 {
-                    var r = ind.Size * (ind.Focused ? 0.26f : 0.2f);
+                    var r = ind.Size * (ind.Focused ? 0.24f : 0.19f);
                     ctx.FillEllipse(new Ellipse(new Vector2(ind.CenterX, ind.CenterY), r, r), brush);
                 }
                 break;

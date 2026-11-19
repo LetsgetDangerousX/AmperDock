@@ -8,15 +8,18 @@ public sealed record DockMetrics(
     float Spacing = 8,
     float PadX = 12,
     float PadY = 10,
-    float IndicatorSize = 10,
-    float IndicatorGap = 3,
+    float IndicatorSize = 24,
+    float IndicatorGap = 2,
     float Radius = 22)
 {
     public DockMetrics Scale(float s) => new(IconSize * s, MagnifiedSize * s, MagnifyRangeIcons, Spacing * s,
         PadX * s, PadY * s, IndicatorSize * s, IndicatorGap * s, Radius * s);
 
     /// <summary>Height of the dock band at rest: padding + icon + room for the running indicator.</summary>
-    public float BandHeight => PadY * 2 + IconSize + IndicatorSize + IndicatorGap;
+    public float BandHeight => PadY + IconSize + IndicatorGap + IndicatorSize + BottomPad;
+
+    /// <summary>Padding under the indicator row. Smaller than the top: the indicator already leaves air under the icons.</summary>
+    public float BottomPad => PadY * 0.5f;
 
     /// <summary>Window height needed so magnified icons (and a label above them) fit.</summary>
     public float WindowHeight(float labelRoom) => BandHeight + (MagnifiedSize - IconSize) + labelRoom;
@@ -85,7 +88,7 @@ public static class DockLayout
     {
         var n = sizes.Length;
         var icons = new RectF[n];
-        var baseline = windowHeight - m.PadY - m.IndicatorSize - m.IndicatorGap;   // bottom edge of the icons
+        var baseline = windowHeight - m.BottomPad - m.IndicatorSize - m.IndicatorGap;   // bottom edge of the icons
         var total = n == 0 ? m.IconSize : sizes.Sum() + (n - 1) * m.Spacing;
         var x = centerX - total / 2;
         for (var i = 0; i < n; i++)

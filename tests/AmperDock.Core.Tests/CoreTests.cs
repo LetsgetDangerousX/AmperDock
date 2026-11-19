@@ -284,4 +284,15 @@ public class ThemeFieldTests
         Assert.Null(bad.IndicatorColor);
         Assert.True(bad.Decorations);   // older saved looks without the field keep decorations on
     }
+
+    [Theory]
+    [InlineData("""{"indicator_size":"large"}""", "large")]
+    [InlineData("""{"indicator_size":"huge"}""", "medium")]
+    [InlineData("""{}""", "medium")]
+    public void Indicator_size_round_trips_and_falls_back(string json, string expected)
+    {
+        var a = DockAppearance.FromJson(json);
+        Assert.Equal(expected, a.IndicatorSize);
+        Assert.Equal(expected, DockAppearance.FromJson(a.ToJson()).IndicatorSize);
+    }
 }
