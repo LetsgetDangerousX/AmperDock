@@ -15,7 +15,12 @@ public sealed record DesktopWidget
     public string Kind { get; init; } = "note";              // note | clock | countdown
     public double X { get; init; }                            // top-left, in screen pixels
     public double Y { get; init; }
-    public string Colour { get; init; } = "lilac";            // see WidgetColours
+    public string Colour { get; init; } = "lilac";            // a named colour (see WidgetColours) or any "#RRGGBB"
+    public string? TextColour { get; init; }                  // note: "#RRGGBB", or null to suit the card
+    public string? Font { get; init; }                        // note: a font family name, or null for the app's font
+    public double TextSize { get; init; } = 15;               // note: text size in points
+    public double Width { get; init; }                        // window size in DIPs after resizing, 0 = the widget's own size
+    public double Height { get; init; }
     public string Text { get; init; } = "";                   // note: its text; countdown: its title
     public DateTime? Target { get; init; }                    // countdown: the moment it counts to (local time)
     public bool Clock24 { get; init; }                        // clock: 24-hour time
