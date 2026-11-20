@@ -1014,13 +1014,6 @@ public sealed class DockHost : IDisposable
         return DockLayout.Arrange(sizes, _m, Center(_items.Count), _frame.Thickness);
     }
 
-    private bool OverEmptyDock(float x, float y)
-    {
-        var (rects, bg) = CurrentRects();
-        var band = _items.Count == 0 ? _lastBackground : bg;
-        return band.Contains(x, y) && DockLayout.HitTest(rects, x, y, 0) < 0;
-    }
-
     private static bool AltDown => GetKeyState(VK_MENU) < 0;
 
     private nint WndProcImpl(uint msg, nint w, nint l)
@@ -1032,12 +1025,9 @@ public sealed class DockHost : IDisposable
 
             case WM_SETCURSOR:
             {
-                // a "move" cursor over empty dock space hints that you can drag the dock itself
-                GetCursorPos(out var sp);
-                ScreenToClient(_hwnd, ref sp);
-                var (dx, dy) = _frame.ToDock(sp.X, sp.Y);
-                if (_movingDock || AltDown || OverEmptyDock(dx, dy)) { SetCursor(LoadCursor(0, IDC_SIZEALL)); return 1; }
-                break;
+                // the regular arrow everywhere on the dock; the "move" cursor only while the dock is actually being moved
+                SetCursor(LoadCursor(0, _movingDock ? IDC_SIZEALL : IDC_ARROW));
+                return 1;
             }
 
             case WM_MOUSEMOVE:
