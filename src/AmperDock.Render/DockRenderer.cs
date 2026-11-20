@@ -785,7 +785,7 @@ public sealed class DockRenderer : IDisposable
         ctx.FillRoundedRectangle(new RoundedRectangle(new RectangleF(r.X, r.Y, r.W, r.H), r.W * 0.24f, r.W * 0.24f), brush);
     }
 
-    /// <summary>The paw-print running indicator. Same geometry as replica/design/assets/paw.svg (24-unit box).</summary>
+    /// <summary>The paw-print running indicator (drawn in a 24-unit box).</summary>
     private static void DrawPaw(ID2D1DeviceContext ctx, IndicatorDraw ind, DockStyle style)
     {
         using var brush = ctx.CreateSolidColorBrush((ind.Focused ? style.IndicatorFocused : style.Indicator).ToColor4());

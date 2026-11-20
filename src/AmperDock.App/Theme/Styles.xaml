@@ -141,7 +141,7 @@
     <Setter Property="Margin" Value="0,0,4,0"/>
   </Style>
 
-  <!-- ===== Mochi, the mascot (same art as replica/design/assets/mascot-mochi.svg) ===== -->
+  <!-- ===== Mochi, the mascot ===== -->
   <DrawingImage x:Key="Img.Mochi">
     <DrawingImage.Drawing>
       <DrawingGroup>

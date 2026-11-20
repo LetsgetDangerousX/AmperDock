@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterScreen"
         FontFamily="{StaticResource Font.Sans}" FontSize="{StaticResource Type.Body.Size}"
         Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}">
-  <!-- Every primitive from replica/design/components.md, in each state, so a token change can be checked in one place. -->
+  <!-- Every UI building block, in each state, so a token change can be checked in one place. -->
   <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
     <StackPanel Margin="32,24,32,48" MaxWidth="820">
 
