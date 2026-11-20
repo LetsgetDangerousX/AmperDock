@@ -12,6 +12,12 @@ public sealed record DockBehavior
     /// <summary>Slide the dock off the screen edge when the pointer leaves it; touch the edge to bring it back.</summary>
     public bool AutoHide { get; init; }
 
+    /// <summary>
+    /// How long the pointer has to rest at the screen edge before a hidden dock comes back, in milliseconds.
+    /// 0 brings it back the moment the edge is touched; a short wait stops it popping up on the way to the Start button.
+    /// </summary>
+    public int RevealDelayMs { get; init; } = 600;
+
     /// <summary>Show apps that are open but not pinned, after the pinned ones. Null: only the main dock does.</summary>
     public bool? ShowOpenApps { get; init; }
 

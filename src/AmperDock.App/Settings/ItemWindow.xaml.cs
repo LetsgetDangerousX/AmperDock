@@ -202,9 +202,21 @@ public partial class ItemWindow : Window
         win.SetResourceReference(BackgroundProperty, "Brush.Bg");
         win.SetResourceReference(ForegroundProperty, "Brush.Text");
         win.SetResourceReference(FontFamilyProperty, "Font.Sans");
-        var grid = new WrapPanel { Margin = new Thickness(16) };
+        var sections = new StackPanel { Margin = new Thickness(16, 8, 16, 16) };
+        WrapPanel? grid = null;
+        string? section = null;
         foreach (var icon in icons)
         {
+            var style = icon.Style ?? "Folders";   // a heading for each set: 3D, Planet Pals, Folders
+            if (grid is null || style != section)
+            {
+                section = style;
+                var heading = new TextBlock { Text = style, FontSize = 15, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 8, 0, 8) };
+                System.Windows.Automation.AutomationProperties.SetHeadingLevel(heading, System.Windows.Automation.AutomationHeadingLevel.Level2);
+                sections.Children.Add(heading);
+                grid = new WrapPanel();
+                sections.Children.Add(grid);
+            }
             var label = new TextBlock { Text = icon.Name, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) };
             var card = new Button
             {
@@ -217,7 +229,7 @@ public partial class ItemWindow : Window
             card.Click += (_, _) => { chosen = path; win.DialogResult = true; };
             grid.Children.Add(card);
         }
-        win.Content = new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        win.Content = new ScrollViewer { Content = sections, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         if (win.ShowDialog() != true || chosen is null) return;
         _iconPath = new IconRef(chosen, 0).ToString();   // copied next to AmperDock's settings on Save, so it survives updates
         Error.Text = "";

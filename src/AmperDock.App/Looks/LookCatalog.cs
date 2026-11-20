@@ -9,7 +9,7 @@ namespace AmperDock.App.Looks;
 public sealed record CursorSetInfo(string Id, string Name, string Arrow, string Hand,
     [property: JsonPropertyName("preview_arrow")] string PreviewArrow, [property: JsonPropertyName("preview_hand")] string PreviewHand);
 
-public sealed record FolderIconInfo(string Id, string Name, string Icon, string Preview);
+public sealed record FolderIconInfo(string Id, string Name, string Icon, string Preview, string? Style = null);
 
 /// <summary>A cursor trail and how its particles move. Units: DIPs and seconds. Ranges are [min, max].</summary>
 public sealed record TrailInfo(string Id, string Name, string Tag, string[] Sprites, string Preview,

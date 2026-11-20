@@ -55,7 +55,18 @@ public sealed class DockHost : IDisposable
     // auto-hide
     private float _hide;                       // 0 = showing, 1 = tucked past the screen edge
     private long _pointerLeftAt;               // when the pointer last left the dock or its previews
+    private long _edgeSince;                   // when the pointer reached the edge strip of a tucked-away dock
     private const int HideDelayMs = 700;
+
+    /// <summary>The choices in the Auto-hide menu: how long to rest at the edge before the dock comes back.</summary>
+    private static readonly (int Ms, string Menu, string Spoken)[] RevealDelays =
+    [
+        (0, "Come back as soon as I touch the edge", "a moment"),
+        (300, "Come back after a &short rest (0.3 seconds)", "0.3 seconds"),
+        (600, "Come back after a &moment (0.6 seconds)", "0.6 seconds"),
+        (1000, "Come back after &1 second", "1 second"),
+        (2000, "Come back after &2 seconds", "2 seconds"),
+    ];
 
     // window previews
     private PreviewWindow? _preview;
@@ -529,9 +540,11 @@ public sealed class DockHost : IDisposable
         var hideGoal = HideGoal(out var hidePending);
         if (_hide != hideGoal)
         {
+            var wasTucked = Tucked;
             var step = dt / 0.22f;   // a little under a quarter of a second, either way
             _hide = MathF.Abs(hideGoal - _hide) <= step ? hideGoal : _hide + MathF.Sign(hideGoal - _hide) * step;
             ApplyHideOffset();
+            if (wasTucked && !Tucked) SetExpanded(true, force: true);   // coming back: the whole dock takes the pointer again
             moving = true;
         }
 
@@ -601,6 +614,16 @@ public sealed class DockHost : IDisposable
 
     private bool AutoHides => _behavior.AutoHide && _placement.Edge != DockEdge.Float;
 
+    /// <summary>Hidden all the way past the screen edge (only a thin strip at the edge still notices the pointer).</summary>
+    private bool Tucked => AutoHides && _hide >= 1;
+
+    /// <summary>A click on the edge strip brings a tucked-away dock back straight away, without the wait.</summary>
+    private void RevealNow()
+    {
+        _edgeSince = long.MinValue / 2;
+        Kick();
+    }
+
     private void SaveBehavior(DockBehavior b)
     {
         _behavior = b;
@@ -616,6 +639,12 @@ public sealed class DockHost : IDisposable
     {
         pending = false;
         if (!AutoHides) return 0;
+        if (Tucked && _pointerX is not null && !_dragging && !_movingDock)
+        {
+            // tucked away: come back only once the pointer has rested at the edge for a moment
+            pending = true;
+            if (Environment.TickCount64 - _edgeSince < _behavior.RevealDelayMs) return 1;
+        }
         var away = _pointerX is null && !_dragging && !_movingDock && !_pressed && _preview?.ItemId is null && _items.Count > 0
                    && !(_toast is not null && Environment.TickCount64 < _toastUntil);
         if (!away) return 0;
@@ -660,7 +689,8 @@ public sealed class DockHost : IDisposable
 
     private void TrackHover()
     {
-        var id = _behavior.Previews ? RunningItemUnderPointer() : null;
+        if (Tucked) { _hoverItem = null; return; }   // no previews for icons nobody can see yet
+        var id =_behavior.Previews ? RunningItemUnderPointer() : null;
         if (id != _hoverItem) { _hoverItem = id; _hoverSince = Environment.TickCount64; }
         if (id is not null && id != _previewMuted) _previewMuted = null;   // moved to another icon: previews are back
         if (_hoverItem is not null || _preview?.ItemId is not null) _previewTimer.Start();
@@ -911,7 +941,7 @@ public sealed class DockHost : IDisposable
         var t = _frame.Thickness;
         var bg = _lastBackground.W > 0 ? _lastBackground : new RectF(0, t - _m.BandHeight, _frame.Length, _m.BandHeight);
         RectF r;
-        if (expanded)
+        if (expanded && !Tucked)   // while it waits at the edge, the hidden dock mustn't catch clicks meant for what's behind it
             r = new RectF(0, 0, _frame.Length, t);
         else if (AutoHides && _hide >= 1)
         {
@@ -1031,6 +1061,7 @@ public sealed class DockHost : IDisposable
                 // back on the dock after really leaving it (not just the menu taking the pointer): previews are back
                 if (_pointerX is null && Environment.TickCount64 - Math.Max(_pointerLeftAt, _menuClosedAt) > 400) _previewMuted = null;
                 var (x, y) = DockPoint(l);
+                if (_pointerX is null && Tucked) _edgeSince = Environment.TickCount64;   // the wait at the edge starts now
                 _pointerX = x;
                 _pointerY = y;
                 var past = MathF.Abs(x - _pressX) > DragThreshold * _scale || MathF.Abs(y - _pressY) > DragThreshold * _scale;
@@ -1064,6 +1095,7 @@ public sealed class DockHost : IDisposable
 
             case WM_LBUTTONDOWN:
             {
+                if (Tucked) { RevealNow(); return 0; }
                 var (x, y) = DockPoint(l);
                 var (rects, _) = CurrentRects();
                 _pressIndex = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
@@ -1106,6 +1138,7 @@ public sealed class DockHost : IDisposable
 
             case WM_RBUTTONUP:
             {
+                if (Tucked) { RevealNow(); return 0; }
                 _previewMuted = _hoverItem;
                 var (x, y) = DockPoint(l);
                 ShowMenu(x, y);
@@ -1255,8 +1288,9 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, AutoHide = 13, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, WidgetBase = 40;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, WidgetBase = 40;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
+        const int HideOff = 30, HideTip = 31, HideBase = 32;
         if (hit >= 0 && IsOpenApp(_items[hit]))
         {
             AppendMenu(menu, _items[hit].Target is null ? MF_STRING | MF_GRAYED : MF_STRING, KeepOnDock, "&Keep on dock");
@@ -1286,8 +1320,14 @@ public sealed class DockHost : IDisposable
         AppendMenu(position, MF_SEPARATOR, 0, null);
         AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
         AppendMenu(menu, MF_POPUP, position, "&Position");
-        AppendMenu(menu, _placement.Edge == DockEdge.Float ? MF_STRING | MF_GRAYED : MF_STRING | (_behavior.AutoHide ? MF_CHECKED : 0),
-            AutoHide, "Auto-&hide");
+        var hideMenu = CreatePopupMenu();
+        AppendMenu(hideMenu, MF_STRING | (_behavior.AutoHide ? 0 : MF_CHECKED), HideOff, "&Off");
+        AppendMenu(hideMenu, MF_SEPARATOR, 0, null);
+        AppendMenu(hideMenu, MF_STRING | MF_GRAYED, HideTip, "On: rest the pointer at the screen edge to bring it back");
+        for (var i = 0; i < RevealDelays.Length; i++)
+            AppendMenu(hideMenu, MF_STRING | (_behavior.AutoHide && _behavior.RevealDelayMs == RevealDelays[i].Ms ? MF_CHECKED : 0), HideBase + i, RevealDelays[i].Menu);
+        AppendMenu(menu, MF_POPUP | (_placement.Edge == DockEdge.Float ? MF_GRAYED : 0), hideMenu,
+            _placement.Edge == DockEdge.Float ? "Auto-&hide (dock it to a screen edge first)" : "Auto-&hide");
         AppendMenu(menu, MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
         AppendMenu(menu, MF_STRING | (ShowsOpenApps ? MF_CHECKED : 0), OpenApps, "Show open apps &too");
         AppendMenu(menu, _placement.Edge == DockEdge.Float || _behavior.AutoHide ? MF_STRING | MF_GRAYED
@@ -1360,9 +1400,15 @@ public sealed class DockHost : IDisposable
             case Appearance:
                 _commands.OpenAppearance(this);
                 break;
-            case AutoHide:
-                SetBehavior(_behavior with { AutoHide = !_behavior.AutoHide });
-                Toast(_behavior.AutoHide ? "Auto-hide is on: touch the screen edge to bring the dock back." : "Auto-hide is off.");
+            case HideOff:
+                SetBehavior(_behavior with { AutoHide = false });
+                Toast("Auto-hide is off.");
+                break;
+            case >= HideBase when cmd < HideBase + RevealDelays.Length:
+                var delay = RevealDelays[cmd - HideBase];
+                SetBehavior(_behavior with { AutoHide = true, RevealDelayMs = delay.Ms });
+                Toast(delay.Ms == 0 ? "Auto-hide is on: touch the screen edge to bring the dock back."
+                    : $"Auto-hide is on: rest the pointer at the screen edge for {delay.Spoken} to bring the dock back.");
                 break;
             case Previews:
                 SetBehavior(_behavior with { Previews = !_behavior.Previews });

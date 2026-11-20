@@ -8,6 +8,18 @@ public sealed class StoreTests : IDisposable
     private SettingsStore NewStore() => new(_path);
 
     [Fact]
+    public void Auto_hide_delay_defaults_for_old_settings_and_round_trips()
+    {
+        // settings saved before the delay existed get the default wait, not "pop up instantly"
+        var old = DockBehavior.FromJson("""{"auto_hide":true}""");
+        Assert.True(old.AutoHide);
+        Assert.Equal(600, old.RevealDelayMs);
+        var back = DockBehavior.FromJson((old with { RevealDelayMs = 2000 }).ToJson());
+        Assert.Equal(2000, back.RevealDelayMs);
+        Assert.Equal(0, DockBehavior.FromJson((old with { RevealDelayMs = 0 }).ToJson()).RevealDelayMs);
+    }
+
+    [Fact]
     public void Migrates_fresh_db_and_seeds_main_dock()
     {
         using var s = NewStore();

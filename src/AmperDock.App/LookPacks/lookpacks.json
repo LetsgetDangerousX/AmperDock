@@ -753,6 +753,83 @@
       "style": "3D",
       "icon": "icons/star.ico",
       "preview": "previews/icon-star.png"
+    },
+    {
+      "id": "pal-ringo",
+      "name": "Ringo",
+      "style": "Planet Pals",
+      "icon": "icons/pal-ringo.ico",
+      "preview": "previews/icon-pal-ringo.png"
+    },
+    {
+      "id": "pal-terra",
+      "name": "Terra",
+      "style": "Planet Pals",
+      "icon": "icons/pal-terra.ico",
+      "preview": "previews/icon-pal-terra.png"
+    },
+    {
+      "id": "pal-snooze",
+      "name": "Snooze",
+      "style": "Planet Pals",
+      "icon": "icons/pal-snooze.ico",
+      "preview": "previews/icon-pal-snooze.png"
+    },
+    {
+      "id": "pal-rosie",
+      "name": "Rosie",
+      "style": "Planet Pals",
+      "icon": "icons/pal-rosie.ico",
+      "preview": "previews/icon-pal-rosie.png"
+    },
+    {
+      "id": "pal-big-swirl",
+      "name": "Big Swirl",
+      "style": "Planet Pals",
+      "icon": "icons/pal-big-swirl.ico",
+      "preview": "previews/icon-pal-big-swirl.png"
+    },
+    {
+      "id": "pal-frost",
+      "name": "Frost",
+      "style": "Planet Pals",
+      "icon": "icons/pal-frost.ico",
+      "preview": "previews/icon-pal-frost.png"
+    },
+    {
+      "id": "pal-sunny",
+      "name": "Sunny",
+      "style": "Planet Pals",
+      "icon": "icons/pal-sunny.ico",
+      "preview": "previews/icon-pal-sunny.png"
+    },
+    {
+      "id": "pal-zip",
+      "name": "Zip",
+      "style": "Planet Pals",
+      "icon": "icons/pal-zip.ico",
+      "preview": "previews/icon-pal-zip.png"
+    },
+    {
+      "id": "pal-kitty-rocket",
+      "name": "Kitty Rocket",
+      "style": "Planet Pals",
+      "icon": "icons/pal-kitty-rocket.ico",
+      "preview": "previews/icon-pal-kitty-rocket.png"
+    },
+    {
+      "id": "pal-twink",
+      "name": "Twink",
+      "style": "Planet Pals",
+      "icon": "icons/pal-twink.ico",
+      "preview": "previews/icon-pal-twink.png"
+    },
+    {
+      "id": "pal-nap-moon",
+      "name": "Nap Moon",
+      "style": "Planet Pals",
+      "icon": "icons/pal-nap-moon.ico",
+      "preview": "previews/icon-pal-nap-moon.png"
     }
   ]
 }
