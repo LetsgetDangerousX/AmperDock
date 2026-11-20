@@ -6,6 +6,10 @@
     <AssemblyName>AmperDock</AssemblyName>
     <RootNamespace>AmperDock.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AmperDock.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Product>AmperDock</Product>
+    <Company>Ampersite LLC</Company>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- WPF's Fluent ThemeMode is still marked experimental -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
@@ -23,5 +27,8 @@
     <ProjectReference Include="..\AmperDock.Core\AmperDock.Core.csproj" />
     <ProjectReference Include="..\AmperDock.Shell\AmperDock.Shell.csproj" />
     <ProjectReference Include="..\AmperDock.Render\AmperDock.Render.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 </Project>

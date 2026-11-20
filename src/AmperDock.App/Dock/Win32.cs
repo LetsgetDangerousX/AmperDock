@@ -17,6 +17,14 @@ internal static partial class Win32
     public const uint TPM_RETURNCMD = 0x100, TPM_BOTTOMALIGN = 0x20, TPM_RIGHTBUTTON = 0x2, MF_STRING = 0, MF_SEPARATOR = 0x800, MF_GRAYED = 1;
     public const uint SWP_NOACTIVATE = 0x10, SWP_NOZORDER = 0x4, SWP_NOMOVE = 0x2, SWP_NOSIZE = 0x1;
     public const uint WM_WINDOWPOSCHANGING = 0x46;
+
+    // app bars: reserving a strip of the screen, as the taskbar does
+    [StructLayout(LayoutKind.Sequential)]
+    public struct APPBARDATA { public uint cbSize; public nint hWnd; public uint uCallbackMessage, uEdge; public RECT rc; public nint lParam; }
+    public const uint ABM_NEW = 0, ABM_REMOVE = 1, ABM_QUERYPOS = 2, ABM_SETPOS = 3, ABN_POSCHANGED = 1;
+    public const uint ABE_LEFT = 0, ABE_TOP = 1, ABE_RIGHT = 2, ABE_BOTTOM = 3;
+    public const uint WM_APPBAR = 0x8000 + 0x41;   // WM_APP + n: Windows tells the dock when other bars move
+    [DllImport("shell32.dll")] public static extern nint SHAppBarMessage(uint msg, ref APPBARDATA data);
     public static readonly nint HWND_BOTTOM = 1, HWND_NOTOPMOST = -2;
     public const int GWLP_HWNDPARENT = -8;
     [StructLayout(LayoutKind.Sequential)]
@@ -80,7 +88,7 @@ internal static partial class Win32
 
     // ---- monitors, cursors, keyboard, submenus (dock moving)
     public const uint WM_SETCURSOR = 0x20, MF_POPUP = 0x10, MF_CHECKED = 0x8, MONITOR_DEFAULTTONEAREST = 2;
-    public const int VK_MENU = 0x12, IDC_ARROW = 32512, IDC_SIZEALL = 32646;
+    public const int VK_LBUTTON = 0x01, VK_MENU = 0x12, IDC_ARROW = 32512, IDC_SIZEALL = 32646;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct MONITORINFOEX

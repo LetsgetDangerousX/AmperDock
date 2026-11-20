@@ -75,6 +75,19 @@
           <Button x:Name="ApplyFolderButton" Style="{StaticResource Btn.Primary}" Content="Choose folders…" Click="OnApplyFolder"/>
           <TextBlock x:Name="FolderStatus" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
         </StackPanel>
+        <Border Margin="0,14,0,0" Padding="14,12" CornerRadius="12" BorderThickness="1"
+                BorderBrush="{DynamicResource Brush.Border}" Background="{DynamicResource Brush.SurfaceRaised}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Text.BodyStrong}" Text="Every folder on this PC"/>
+            <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,2,0,8"
+                       Text="Gives every folder the chosen icon, for everyone who uses this PC. Windows asks for permission first, and Undo puts the usual icon back."/>
+            <StackPanel Orientation="Horizontal">
+              <Button x:Name="EverywhereButton" Style="{StaticResource Btn.Secondary}" Click="OnEverywhere"/>
+              <Button x:Name="EverywhereUndo" Style="{StaticResource Btn.Ghost}" Margin="8,0,0,0" Content="Put back the usual folder icon" Click="OnEverywhereUndo"/>
+              <TextBlock x:Name="EverywhereStatus" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" MaxWidth="300"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
         <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,20,0,8" Text="Folders you've customised"/>
         <StackPanel x:Name="FolderList"/>
       </StackPanel>

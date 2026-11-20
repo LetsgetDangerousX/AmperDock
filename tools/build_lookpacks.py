@@ -55,6 +55,15 @@ FOLDERS = [
     ("purrple", "Purrple"), ("mushroom", "Mushroom"), ("bunny", "Bunny"), ("bear", "Bear"), ("cloud", "Cloud"),
     ("holo", "Holographic"), ("sakura", "Sakura"), ("strawberry", "Strawberry"), ("pixel-heart", "Pixel heart"),
     ("leaf", "Autumn leaf"), ("ghost", "Ghost"), ("neon", "Neon"), ("book", "Book"), ("planet", "Planet"),
+    ("3d-lilac", "3D lilac"), ("3d-pink", "3D pink"), ("3d-night", "3D night sky"),
+]
+# folder icons drawn somewhere other than folder-<id>.svg
+FOLDER_SVG = {"3d-lilac": "icon3d-folder-lilac", "3d-pink": "icon3d-folder-pink", "3d-night": "icon3d-folder-night"}
+
+# the icon library: pictures for dock items (Edit → Choose an AmperDock icon), from replica/design/make_3d_icons.py
+LIBRARY = [
+    ("planet", "Planet"), ("crystal", "Crystal ball"), ("potion", "Potion"), ("book", "Spell book"), ("candle", "Candle"),
+    ("moon", "Moon"), ("mushroom", "Mushroom"), ("heart", "Heart gem"), ("paw", "Paw"), ("teacup", "Teacup"), ("star", "Star"),
 ]
 ICON_SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
 
@@ -237,7 +246,10 @@ def main():
                     items.append((f"cur/{sid}/{part}/{s}", ASSETS / f"{svg}.svg", s))
         for fid, _ in FOLDERS:
             for s in ICON_SIZES:
-                items.append((f"ico/{fid}/{s}", ASSETS / f"folder-{fid}.svg", s))
+                items.append((f"ico/{fid}/{s}", ASSETS / f"{FOLDER_SVG.get(fid, 'folder-' + fid)}.svg", s))
+        for lid, _ in LIBRARY:
+            for s in ICON_SIZES:
+                items.append((f"lib/{lid}/{s}", ASSETS / f"icon3d-{lid}.svg", s))
         rendered = svg_sheet(items, work)
         sprites = trail_sheet(work)
         walls = {}
@@ -247,7 +259,7 @@ def main():
             walls[p["id"]] = render(f'<html><body style="margin:0"><img src="{src.as_uri()}" style="display:block;width:{w}px;height:{h}px"></body></html>',
                                     w, h, work).convert("RGB")
 
-    catalogue = {"cursor_sets": [], "folder_icons": [], "trails": [], "theme_packs": []}
+    catalogue = {"cursor_sets": [], "folder_icons": [], "trails": [], "theme_packs": [], "icon_library": []}
     for sid, name, _, ahs, _, hhs in CURSOR_SETS:
         for part, hs in (("arrow", ahs), ("hand", hhs)):
             write_icon_file(OUT / "cursors" / sid / f"{part}.cur", [rendered[f"cur/{sid}/{part}/{s}"] for s in CURSOR_SIZES], hs)
@@ -258,6 +270,10 @@ def main():
         write_icon_file(OUT / "folders" / f"{fid}.ico", [rendered[f"ico/{fid}/{s}"] for s in ICON_SIZES])
         rendered[f"ico/{fid}/64"].save(OUT / "previews" / f"folder-{fid}.png")
         catalogue["folder_icons"].append({"id": fid, "name": name, "icon": f"folders/{fid}.ico", "preview": f"previews/folder-{fid}.png"})
+    for lid, name in LIBRARY:
+        write_icon_file(OUT / "icons" / f"{lid}.ico", [rendered[f"lib/{lid}/{s}"] for s in ICON_SIZES])
+        rendered[f"lib/{lid}/64"].save(OUT / "previews" / f"icon-{lid}.png")
+        catalogue["icon_library"].append({"id": lid, "name": name, "style": "3D", "icon": f"icons/{lid}.ico", "preview": f"previews/icon-{lid}.png"})
     for tid, name, tag, kind, variants, motion in TRAILS:
         files = []
         for vi in range(len(variants)):

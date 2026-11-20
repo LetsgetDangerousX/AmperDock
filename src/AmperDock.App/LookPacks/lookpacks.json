@@ -165,6 +165,24 @@
       "name": "Planet",
       "icon": "folders/planet.ico",
       "preview": "previews/folder-planet.png"
+    },
+    {
+      "id": "3d-lilac",
+      "name": "3D lilac",
+      "icon": "folders/3d-lilac.ico",
+      "preview": "previews/folder-3d-lilac.png"
+    },
+    {
+      "id": "3d-pink",
+      "name": "3D pink",
+      "icon": "folders/3d-pink.ico",
+      "preview": "previews/folder-3d-pink.png"
+    },
+    {
+      "id": "3d-night",
+      "name": "3D night sky",
+      "icon": "folders/3d-night.ico",
+      "preview": "previews/folder-3d-night.png"
     }
   ],
   "trails": [
@@ -656,6 +674,85 @@
       "folder_icon": "cloud",
       "wallpaper": "wallpapers/cloud-meadow.png",
       "preview": "previews/pack-cloud-meadow.png"
+    }
+  ],
+  "icon_library": [
+    {
+      "id": "planet",
+      "name": "Planet",
+      "style": "3D",
+      "icon": "icons/planet.ico",
+      "preview": "previews/icon-planet.png"
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal ball",
+      "style": "3D",
+      "icon": "icons/crystal.ico",
+      "preview": "previews/icon-crystal.png"
+    },
+    {
+      "id": "potion",
+      "name": "Potion",
+      "style": "3D",
+      "icon": "icons/potion.ico",
+      "preview": "previews/icon-potion.png"
+    },
+    {
+      "id": "book",
+      "name": "Spell book",
+      "style": "3D",
+      "icon": "icons/book.ico",
+      "preview": "previews/icon-book.png"
+    },
+    {
+      "id": "candle",
+      "name": "Candle",
+      "style": "3D",
+      "icon": "icons/candle.ico",
+      "preview": "previews/icon-candle.png"
+    },
+    {
+      "id": "moon",
+      "name": "Moon",
+      "style": "3D",
+      "icon": "icons/moon.ico",
+      "preview": "previews/icon-moon.png"
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom",
+      "style": "3D",
+      "icon": "icons/mushroom.ico",
+      "preview": "previews/icon-mushroom.png"
+    },
+    {
+      "id": "heart",
+      "name": "Heart gem",
+      "style": "3D",
+      "icon": "icons/heart.ico",
+      "preview": "previews/icon-heart.png"
+    },
+    {
+      "id": "paw",
+      "name": "Paw",
+      "style": "3D",
+      "icon": "icons/paw.ico",
+      "preview": "previews/icon-paw.png"
+    },
+    {
+      "id": "teacup",
+      "name": "Teacup",
+      "style": "3D",
+      "icon": "icons/teacup.ico",
+      "preview": "previews/icon-teacup.png"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "style": "3D",
+      "icon": "icons/star.ico",
+      "preview": "previews/icon-star.png"
     }
   ]
 }

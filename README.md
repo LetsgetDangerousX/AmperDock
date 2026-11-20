@@ -15,8 +15,6 @@ dotnet run --project src/AmperDock.App
 
 - Right-click the dock to add apps (**Add an app…** lists everything in Start, Store apps included), files or folders, change its position or appearance, turn on **Auto-hide** or **Window previews**, or **Quit AmperDock**. You can also drag apps, files and folders from Explorer onto the dock.
 - Rest the pointer on an open app to see live previews of its windows: click one to switch to it, or use its ✕ to close it.
-- **New desktop shelf** (right-click menu) makes a dock that lives on the desktop under your windows. Drop desktop icons on it to tidy them:
-  the desktop copy is only hidden, never moved, and comes back when you take it off the shelf or remove the shelf.
 - Dock appearance has **Dock colours follow my wallpaper**, **Icon colours follow my wallpaper** (separately) and **Reflections**.
 - Right-click → **Add a desktop widget**: a note, a clock, a countdown or Mochi the cat. They sit on the desktop; drag them anywhere, right-click for colours (notes also have text colour, font and size), and drag a corner to resize.
 - Look packs → **Theme packs** sets a wallpaper, dock theme, cursors, trail and folder icons together (or the ones you tick), with Undo.
@@ -41,6 +39,7 @@ python replica/design/make_dock_themes.py   # dock theme decorations and indicat
 python replica/design/make_planets.py       # Planet Pals (space themes)
 python replica/design/make_pack_art.py      # theme-pack folders, cursors and dock pieces
 python replica/design/make_wallpapers.py    # theme-pack wallpapers (then build_dockthemes, then build_lookpacks)
+python replica/design/make_3d_icons.py      # the 3D icon library and 3D folders
 python tools/build_dockthemes.py
 ```
 
@@ -49,6 +48,15 @@ are picked under **Dock appearance → Themes**. Each sets a starting look, and 
 
 (`build_lookpacks.py` needs Pillow and uses Microsoft Edge to render.) `--selftest-looks report.txt` applies
 and restores a cursor set and a folder icon on a temp folder, and checks everything came back exactly.
+
+## Installer
+
+```
+powershell -ExecutionPolicy Bypass -File tools\make_installer.ps1 -Version 0.1.0
+```
+
+Makes `artifacts\releases\Ampersite.AmperDock-win-Setup.exe` (installs for the current user, no admin). Installed copies update themselves
+from this repository's GitHub releases; uninstalling first puts back cursors, folder icons, a theme pack's wallpaper and tidied desktop icons.
 
 ## Test
 

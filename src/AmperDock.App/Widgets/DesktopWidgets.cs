@@ -15,7 +15,7 @@ namespace AmperDock.App;
 /// <summary>The desktop widgets you can add: a note, a clock and a countdown.</summary>
 public static class DesktopWidgetKinds
 {
-    public static readonly (string Kind, string Name)[] All = [("note", "Note"), ("clock", "Clock"), ("countdown", "Countdown"), ("mochi", "Mochi")];
+    public static readonly (string Kind, string Name)[] All = [("note", "Note"), ("clock", "Clock"), ("countdown", "Countdown"), ("weather", "Weather"), ("mochi", "Mochi")];
 }
 
 /// <summary>The colours a widget can wear: a soft gradient, the text colour on it, and an accent.</summary>
@@ -110,7 +110,7 @@ public sealed class DesktopWidgetManager
         {
             Kind = kind,
             X = work.Right - 320 - n * 28, Y = work.Top + 60 + n * 28,
-            Colour = kind switch { "note" => "pink", "countdown" => "mint", "mochi" => "#FFFFFF", _ => "lilac" },
+            Colour = kind switch { "note" => "pink", "countdown" => "mint", "weather" => "sky", "mochi" => "#FFFFFF", _ => "lilac" },
             Text = kind == "countdown" ? "Christmas" : "",
             Target = kind == "countdown" ? DesktopWidget.NextChristmas(DateTime.Now) : null,
         };
@@ -149,6 +149,7 @@ public sealed class DesktopWidgetManager
             "clock" => new ClockWidget(w, this),
             "countdown" => new CountdownWidget(w, this),
             "mochi" => new MochiWidget(w, this),
+            "weather" => new WeatherWidget(w, this),
             _ => new NoteWidget(w, this),
         };
         _open.Add(win);
@@ -210,6 +211,9 @@ public abstract class WidgetWindow : Window
         }, Dispatcher);
         SourceInitialized += (_, _) => SitOnDesktop();
         Loaded += (_, _) => ApplyColour();
+        Action follow = () => { if (Data.Colour == WallpaperColour) ApplyColour(); };
+        Looks.WallpaperWatcher.Shared.Changed += follow;
+        Closed += (_, _) => Looks.WallpaperWatcher.Shared.Changed -= follow;
     }
 
     protected virtual void OnDoubleClick() { }
@@ -315,7 +319,22 @@ public abstract class WidgetWindow : Window
         Manager.Update(changed);
     }
 
-    protected WidgetColours.Look Colours => WidgetColours.Get(Data.Colour);
+    public const string WallpaperColour = "wallpaper";
+
+    /// <summary>The card's colours: a named or chosen colour, or (for "wallpaper") the colours of the wallpaper behind it.</summary>
+    protected WidgetColours.Look Colours
+    {
+        get
+        {
+            if (Data.Colour != WallpaperColour) return WidgetColours.Get(Data.Colour);
+            var px = PresentationSource.FromVisual(this) is null ? new Point(Left, Top) : PointToScreen(new Point(ActualWidth / 2, ActualHeight / 2));
+            if (Looks.WallpaperWatcher.Shared.PaletteFor(new RectF((float)px.X, (float)px.Y, 1, 1)) is not { } p) return WidgetColours.Get("lilac");
+            Color C(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+            return p.Dark
+                ? new WidgetColours.Look("Wallpaper", C(p.Fill2), C(p.Fill), C("#F3ECFF"), C(p.Indicator))
+                : new WidgetColours.Look("Wallpaper", C(p.Fill), C(p.Fill2), C("#2A1F3D"), C(p.Indicator));
+        }
+    }
     protected Brush InkBrush => new SolidColorBrush(Colours.Ink);
 
     /// <summary>Paint the card in the widget's colour; each widget repaints its own text too.</summary>
@@ -332,7 +351,8 @@ public abstract class WidgetWindow : Window
 
     /// <summary>The colours offered in the Colour menu: (stored value, name, swatch top, swatch bottom).</summary>
     protected virtual IEnumerable<(string Value, string Name, Color Top, Color Bottom)> ColourChoices() =>
-        WidgetColours.All.Select(kv => (kv.Key, kv.Value.Name, kv.Value.Top, kv.Value.Bottom));
+        new[] { (WallpaperColour, "Match my wallpaper", Color.FromRgb(0xB9, 0xA4, 0xFF), Color.FromRgb(0x7E, 0xD9, 0xAE)) }
+            .Concat(WidgetColours.All.Select(kv => (kv.Key, kv.Value.Name, kv.Value.Top, kv.Value.Bottom)));
 
     protected virtual string ColourMenuName => "_Colour";
 
@@ -870,5 +890,226 @@ public sealed class MochiWidget : WidgetWindow
     {
         _happyUntil = Environment.TickCount64 + 1600;
         _bubble.Text = Purrs[Random.Shared.Next(Purrs.Length)];
+    }
+}
+
+/// <summary>
+/// Today's weather for a place you type in: a little picture (sun, clouds, rain, snow, storm, fog or a
+/// moon at night, with a face), the temperature, the day's high and low. From Open-Meteo (free, no
+/// account): only the place name and its coordinates are sent. Refreshes every 30 minutes.
+/// </summary>
+public sealed class WeatherWidget : WidgetWindow
+{
+    private static readonly System.Net.Http.HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(12) };
+
+    private readonly TextBlock _temp, _words, _place, _range;
+    private readonly Canvas _picture = new() { Width = 64, Height = 64 };
+    private readonly StackPanel _view, _edit;
+    private readonly TextBox _cityBox;
+    private readonly CheckBox _fahrenheit;
+    private readonly TextBlock _editNote;
+    private readonly DispatcherTimer _tick;
+    private (double temp, int code, bool day, double hi, double lo)? _last;
+
+    static WeatherWidget() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("AmperDock/1.0");
+
+    public WeatherWidget(DesktopWidget data, DesktopWidgetManager manager) : base(data, manager, 250, 150)
+    {
+        _temp = Text("", 44, FontWeights.Black, Brushes.Black);
+        _words = Text("", 14, FontWeights.Bold, Brushes.Black);
+        _place = Text("", 12, FontWeights.SemiBold, Brushes.Black);
+        _place.Opacity = 0.75;
+        _range = Text("", 12, FontWeights.SemiBold, Brushes.Black);
+        _range.Opacity = 0.75;
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), Children = { _temp, _words, _range } };
+        _view = new StackPanel
+        {
+            Margin = new Thickness(18, 12, 18, 12), VerticalAlignment = VerticalAlignment.Center,
+            Children = { _place, new StackPanel { Orientation = Orientation.Horizontal, Children = { new Viewbox { Width = 72, Height = 72, Child = _picture }, words } } },
+        };
+        _cityBox = new TextBox { FontSize = 14, Margin = new Thickness(0, 4, 0, 6) };
+        System.Windows.Automation.AutomationProperties.SetName(_cityBox, "Your town or city");
+        _cityBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) FinishEditing(); };
+        _fahrenheit = new CheckBox { Content = "Show °F", Margin = new Thickness(0, 0, 0, 8) };
+        _editNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Margin = new Thickness(0, 0, 0, 6) };
+        var done = new Button { Content = "Done", HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(14, 4, 14, 4) };
+        done.SetResourceReference(StyleProperty, "Btn.Primary");
+        done.Click += (_, _) => FinishEditing();
+        _edit = new StackPanel
+        {
+            Margin = new Thickness(18, 10, 18, 10), Visibility = Visibility.Collapsed,
+            Children = { new TextBlock { Text = "Weather for", FontSize = 12, Opacity = 0.75 }, _cityBox, _fahrenheit, _editNote, done },
+        };
+        Card.Child = new Grid { Children = { _view, _edit } };
+        _tick = new DispatcherTimer(TimeSpan.FromMinutes(30), DispatcherPriority.Background, async (_, _) => await Fetch(), Dispatcher);
+        _tick.Start();
+        Closed += (_, _) => _tick.Stop();
+        Loaded += async (_, _) =>
+        {
+            if (Data.Latitude is null) StartEditing();
+            else await Fetch();
+        };
+        Show(null);
+    }
+
+    protected override void OnDoubleClick() => StartEditing();
+
+    protected override IEnumerable<object> MenuItems()
+    {
+        var place = new MenuItem { Header = "Change _place…" };
+        place.Click += (_, _) => StartEditing();
+        var refresh = new MenuItem { Header = "_Refresh" };
+        refresh.Click += async (_, _) => await Fetch();
+        var f = new MenuItem { Header = "Show _°F", IsCheckable = true, IsChecked = Data.Fahrenheit };
+        f.Click += async (_, _) => { Save(Data with { Fahrenheit = !Data.Fahrenheit }); await Fetch(); };
+        return [place, refresh, f];
+    }
+
+    private void StartEditing()
+    {
+        _cityBox.Text = Data.Place?.Split(',')[0] ?? "";
+        _fahrenheit.IsChecked = Data.Fahrenheit;
+        _editNote.Text = Data.Latitude is null ? "Type your town or city, then Done." : "";
+        _view.Visibility = Visibility.Collapsed;
+        _edit.Visibility = Visibility.Visible;
+        Activate();
+        _cityBox.Focus();
+    }
+
+    private async void FinishEditing()
+    {
+        var city = _cityBox.Text.Trim();
+        if (city.Length == 0) { _editNote.Text = "Type a town or city first."; return; }
+        _editNote.Text = "Looking it up…";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await Http.GetStringAsync(
+                "https://geocoding-api.open-meteo.com/v1/search?count=1&format=json&name=" + Uri.EscapeDataString(city)));
+            if (!doc.RootElement.TryGetProperty("results", out var results) || results.GetArrayLength() == 0)
+            {
+                _editNote.Text = $"Couldn't find \"{city}\". Check the spelling, or try a bigger town nearby.";
+                return;
+            }
+            var r = results[0];
+            var name = r.GetProperty("name").GetString() ?? city;
+            var country = r.TryGetProperty("country", out var c) ? c.GetString() : null;
+            Save(Data with
+            {
+                Place = country is null ? name : $"{name}, {country}",
+                Latitude = r.GetProperty("latitude").GetDouble(), Longitude = r.GetProperty("longitude").GetDouble(),
+                Fahrenheit = _fahrenheit.IsChecked == true,
+            });
+            _edit.Visibility = Visibility.Collapsed;
+            _view.Visibility = Visibility.Visible;
+            await Fetch();
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            _editNote.Text = "Can't reach the weather service. Check your internet connection and try again.";
+        }
+    }
+
+    private async Task Fetch()
+    {
+        if (Data.Latitude is not { } lat || Data.Longitude is not { } lon) return;
+        var inv = CultureInfo.InvariantCulture;
+        var url = "https://api.open-meteo.com/v1/forecast?current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min"
+                  + $"&forecast_days=1&timezone=auto&latitude={lat.ToString(inv)}&longitude={lon.ToString(inv)}"
+                  + (Data.Fahrenheit ? "&temperature_unit=fahrenheit" : "");
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await Http.GetStringAsync(url));
+            var cur = doc.RootElement.GetProperty("current");
+            var daily = doc.RootElement.GetProperty("daily");
+            _last = (cur.GetProperty("temperature_2m").GetDouble(), cur.GetProperty("weather_code").GetInt32(), cur.GetProperty("is_day").GetInt32() == 1,
+                daily.GetProperty("temperature_2m_max")[0].GetDouble(), daily.GetProperty("temperature_2m_min")[0].GetDouble());
+            Show(null);
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            Show("Can't reach the weather right now");
+        }
+    }
+
+    private void Show(string? problem)
+    {
+        _place.Text = Data.Place ?? "Weather";
+        if (_last is not { } w)
+        {
+            _temp.Text = "–°";
+            _words.Text = problem ?? (Data.Latitude is null ? "Where are you?" : "Fetching…");
+            _range.Text = "";
+            Draw("cloud", day: true);
+            return;
+        }
+        var (words, picture) = DesktopWidget.WeatherCode(w.code);
+        _temp.Text = $"{Math.Round(w.temp)}°";
+        _words.Text = problem ?? words;
+        _range.Text = $"H {Math.Round(w.hi)}°  L {Math.Round(w.lo)}°";
+        Draw(picture, w.day);
+    }
+
+    /// <summary>The weather picture on a 64-unit canvas: soft shapes with ink outlines, and a face on the sun or cloud.</summary>
+    private void Draw(string picture, bool day)
+    {
+        _picture.Children.Clear();
+        var ink = new SolidColorBrush(Color.FromRgb(0x2A, 0x1F, 0x3D));
+        Path P(string g, Brush? fill, double stroke = 2)
+        {
+            var path = new Path { Data = Geometry.Parse(g), Fill = fill, Stroke = ink, StrokeThickness = stroke, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+            _picture.Children.Add(path);
+            return path;
+        }
+        void Face(double cx, double cy, double k = 1)
+        {
+            P($"M{cx - 5 * k},{cy} a1.3,1.3 0 1 0 0.01,0 M{cx + 5 * k},{cy} a1.3,1.3 0 1 0 0.01,0", ink, 1.2);
+            P($"M{cx - 1.6 * k},{cy + 2.6 * k} q{1.6 * k},{1.6 * k} {3.2 * k},0", null, 1.3);
+            P($"M{cx - 9 * k},{cy + 2.4 * k} a2.2,1.3 0 1 0 0.01,0 M{cx + 9 * k},{cy + 2.4 * k} a2.2,1.3 0 1 0 0.01,0", new SolidColorBrush(Color.FromArgb(0xCC, 0xF4, 0xA6, 0xC8)), 0);
+        }
+        var sunFill = new SolidColorBrush(Color.FromRgb(0xFF, 0xD4, 0x5C));
+        var cloudFill = new SolidColorBrush(Colors.White);
+        const string cloud = "M14,46 a8,8 0 0 1 2,-15.6 a12,12 0 0 1 22.6,-4 a10,10 0 0 1 15.4,9.6 a6,6 0 0 1 -0.6,10 Z";
+        switch (picture)
+        {
+            case "sun" when !day:
+            case "partly" when !day:
+                P("M40,10 c-12,0 -22,9.6 -22,22 s10,22 22,22 c5,0 9.6,-1.6 13.4,-4.6 c-1.8,0.4 -3.6,0.6 -5.4,0.6 c-11,0 -19.6,-8.6 -19.6,-19 s8.6,-19.4 19.6,-19.4 c1.8,0 3.6,0.2 5.4,0.6 c-3.8,-2.4 -8.4,-2.2 -13.4,-2.2 Z", new SolidColorBrush(Color.FromRgb(0xFF, 0xE9, 0xA8)));
+                Face(27, 34, 0.7);
+                break;
+            case "sun":
+                for (var i = 0; i < 8; i++)
+                {
+                    var a = i * Math.PI / 4;
+                    P($"M{32 + Math.Cos(a) * 21},{32 + Math.Sin(a) * 21} L{32 + Math.Cos(a) * 28},{32 + Math.Sin(a) * 28}", null, 3.4).Stroke = new SolidColorBrush(Color.FromRgb(0xFF, 0xB8, 0x4D));
+                }
+                P("M15,32 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0 Z", sunFill);
+                Face(32, 32);
+                break;
+            case "partly":
+                P("M24,22 a14,14 0 1 0 28,0 a14,14 0 1 0 -28,0 Z", sunFill);
+                P(cloud, cloudFill);
+                Face(30, 39, 0.85);
+                break;
+            default:
+                P(cloud, picture == "storm" ? new SolidColorBrush(Color.FromRgb(0xC9, 0xC4, 0xD3)) : cloudFill);
+                Face(32, 37, 0.85);
+                if (picture == "rain")
+                    foreach (var x in new[] { 20.0, 31, 42 }) P($"M{x},51 q-2.4,4 0,6 q2.4,-2 0,-6 Z", new SolidColorBrush(Color.FromRgb(0x8C, 0xCB, 0xFF)), 1.2);
+                if (picture == "snow")
+                    foreach (var x in new[] { 20.0, 32, 44 }) P($"M{x},50 v8 M{x - 3.4},52 l6.8,4 M{x - 3.4},56 l6.8,-4", null, 1.4).Stroke = new SolidColorBrush(Color.FromRgb(0x8C, 0xCB, 0xFF));
+                if (picture == "storm") P("M32,47 l-5,8 h5 l-3,8 l9,-11 h-5 l3,-5 Z", sunFill, 1.4);
+                if (picture == "fog") foreach (var y in new[] { 51.0, 56 }) P($"M14,{y} h36", null, 2.4).Stroke = new SolidColorBrush(Color.FromRgb(0xB9, 0xA4, 0xFF));
+                break;
+        }
+    }
+
+    protected override void ApplyColour()
+    {
+        base.ApplyColour();
+        var c = Colours;
+        _temp.Foreground = _place.Foreground = _range.Foreground = _cityBox.Foreground = _editNote.Foreground = InkBrush;
+        _words.Foreground = new SolidColorBrush(c.Accent);
+        _fahrenheit.Foreground = InkBrush;
+        foreach (var t in _edit.Children.OfType<TextBlock>()) t.Foreground = InkBrush;
     }
 }

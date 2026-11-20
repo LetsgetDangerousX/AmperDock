@@ -37,6 +37,7 @@ public sealed class LookCatalog
     [JsonPropertyName("folder_icons")] public List<FolderIconInfo> FolderIcons { get; init; } = [];
     public List<TrailInfo> Trails { get; init; } = [];
     [JsonPropertyName("theme_packs")] public List<ThemePackInfo> ThemePacks { get; init; } = [];
+    [JsonPropertyName("icon_library")] public List<FolderIconInfo> IconLibrary { get; init; } = [];
 
     public static string Root => Path.Combine(AppContext.BaseDirectory, "LookPacks");
 

@@ -151,6 +151,49 @@ public sealed partial class LookService : IDisposable
         return null;
     }
 
+    // ---------------------------------------------------------------- one icon for every folder (asks for permission)
+
+    private const string KeyEverywhere = "look.folder_everywhere";
+
+    /// <summary>A record of the system-wide folder icon AmperDock set, and what Windows had before.</summary>
+    public sealed record EverywhereRecord(string IconId, string? PreviousClosed, string? PreviousOpen);
+
+    public EverywhereRecord? FolderIconEverywhere
+    {
+        get
+        {
+            try { return _store.GetSetting(KeyEverywhere) is { } j && j != "null" ? JsonSerializer.Deserialize<EverywhereRecord>(j) : null; }
+            catch (JsonException) { return null; }
+        }
+    }
+
+    /// <summary>
+    /// Give every folder on this PC one of our icons (Windows' "Shell Icons" setting, which needs admin:
+    /// Windows asks first). Remembers what was there so Undo is exact. Returns an error message, or null.
+    /// Runs the elevated helper, so call it off the UI thread.
+    /// </summary>
+    public string? SetFolderIconEverywhere(FolderIconInfo icon)
+    {
+        var before = FolderIconEverywhere;
+        var (closed, open) = before is null ? AdminTasks.CurrentFolderIcon() : (before.PreviousClosed, before.PreviousOpen);
+        var ok = AdminTasks.RunElevated(new AdminTasks.Job("folder-icon", Icon: LookCatalog.FullPath(icon.Icon)));
+        if (!ok) return "Nothing changed (Windows didn't give permission).";
+        _store.SetSetting(KeyEverywhere, JsonSerializer.Serialize(new EverywhereRecord(icon.Id, closed, open)));
+        Changed?.Invoke();
+        return null;
+    }
+
+    /// <summary>Put back the folder icon Windows had before. Asks for permission too.</summary>
+    public string? UndoFolderIconEverywhere()
+    {
+        if (FolderIconEverywhere is not { } rec) return null;
+        var ok = AdminTasks.RunElevated(new AdminTasks.Job("folder-icon", Icon: null, PreviousClosed: rec.PreviousClosed, PreviousOpen: rec.PreviousOpen));
+        if (!ok) return "Nothing changed (Windows didn't give permission).";
+        _store.SetSetting(KeyEverywhere, "null");
+        Changed?.Invoke();
+        return null;
+    }
+
     private static string? Unquote(string? json)
     {
         if (json is null) return null;

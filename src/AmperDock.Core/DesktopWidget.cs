@@ -24,6 +24,27 @@ public sealed record DesktopWidget
     public string Text { get; init; } = "";                   // note: its text; countdown: its title
     public DateTime? Target { get; init; }                    // countdown: the moment it counts to (local time)
     public bool Clock24 { get; init; }                        // clock: 24-hour time
+    public string? Place { get; init; }                       // weather: the place's name as found ("Paris, France")
+    public double? Latitude { get; init; }                    // weather: where it's for
+    public double? Longitude { get; init; }
+    public bool Fahrenheit { get; init; }                     // weather: °F instead of °C
+
+    /// <summary>What a WMO weather code (as weather services report it) means, in plain words, and which picture to show.</summary>
+    public static (string words, string picture) WeatherCode(int code) => code switch
+    {
+        0 => ("Clear", "sun"),
+        1 => ("Mostly clear", "sun"),
+        2 => ("Partly cloudy", "partly"),
+        3 => ("Cloudy", "cloud"),
+        45 or 48 => ("Foggy", "fog"),
+        >= 51 and <= 57 => ("Drizzle", "rain"),
+        >= 61 and <= 67 => ("Rain", "rain"),
+        >= 71 and <= 77 => ("Snow", "snow"),
+        >= 80 and <= 82 => ("Showers", "rain"),
+        85 or 86 => ("Snow showers", "snow"),
+        >= 95 => ("Thunderstorm", "storm"),
+        _ => ("Weather", "cloud"),
+    };
 
     private static readonly JsonSerializerOptions Json = new()
     {

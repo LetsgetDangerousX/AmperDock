@@ -6,8 +6,14 @@ namespace AmperDock.Core;
 /// <summary>How one dock behaves (stored in containers.behavior_json). Unknown or broken JSON gives the defaults.</summary>
 public sealed record DockBehavior
 {
+    /// <summary>Reserve the dock's strip of the screen, so maximised windows stop at the dock instead of going under it.</summary>
+    public bool ReserveSpace { get; init; }
+
     /// <summary>Slide the dock off the screen edge when the pointer leaves it; touch the edge to bring it back.</summary>
     public bool AutoHide { get; init; }
+
+    /// <summary>Show apps that are open but not pinned, after the pinned ones. Null: only the main dock does.</summary>
+    public bool? ShowOpenApps { get; init; }
 
     /// <summary>Show live previews of an app's windows when the pointer rests on its icon.</summary>
     public bool Previews { get; init; } = true;

@@ -13,6 +13,13 @@ namespace AmperDock.App;
 
 public partial class App : Application
 {
+    // Velopack's install/update/uninstall hooks must run before anything else. On uninstall, first put
+    // back everything AmperDock changed (cursors, folder icons, wallpaper, tidied desktop icons).
+    static App() => Velopack.VelopackApp.Build()
+        .OnBeforeUninstallFastCallback(_ => UninstallCleanup.Run())
+        .SetAutoApplyOnStartup(true)
+        .Run();
+
     private static readonly string LogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AmperDock", "logs", "amperdock.log");
 
@@ -30,6 +37,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += (_, ex) => { Log(ex.Exception); ex.Handled = true; };
+
+        // the short-lived elevated helper: do the one job and leave (no dock, no windows)
+        if (e.Args.Length >= 2 && e.Args[0] == "--admin-task")
+        {
+            Shutdown(AdminTasks.Perform(e.Args[1]));
+            return;
+        }
 
         // one dock per user session: a second copy would fight over the same screen edge.
         // A copy with its own settings file (--db, for trying things out) counts separately.
@@ -52,6 +66,20 @@ public partial class App : Application
         if (e.Args.SkipWhile(x => x != "--selftest-looks").Skip(1).FirstOrDefault() is { } report)
         {
             File.WriteAllText(report, LookSelfTest.Run(_looks));
+            Shutdown();
+            return;
+        }
+        if (e.Args.SkipWhile(x => x != "--selftest-drop").Skip(1).FirstOrDefault() is { } dropReport)
+        {
+            // what a drop of each item would add: Start menu apps (a Store app and a desktop app) and a plain file
+            var names = new[]
+            {
+                @"shell:AppsFolder\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+                @"shell:AppsFolder\{6D809377-6AF0-444B-8957-A3773F02200E}\Notepad++\notepad++.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe"),
+            };
+            var lines = names.Select(n => $"{n} -> {string.Join(" | ", DropTarget.TargetsOf(n))}").ToList();
+            File.WriteAllLines(dropReport, lines);
             Shutdown();
             return;
         }
@@ -85,8 +113,10 @@ public partial class App : Application
         }
         _widgets = new DesktopWidgetManager(_store);
         MoveWidgetsOffDocks();
+        RetireShelves();
         foreach (var d in _store.GetDocks().Where(d => d.Enabled)) StartDock(d.Id);
         _widgets.Start();
+        StartUpdateChecks();
         _looks.Changed += () => { foreach (var d in _docks) d.RefreshIcons(); };   // folder items pick up new folder icons
         _looks.Start();
         if (e.Args.Contains("--looks")) OpenLooks();
@@ -138,6 +168,19 @@ public partial class App : Application
             .Where(i => i.Type == ItemTypes.Folder && i.Target is not null).Select(i => i.Target!);
     }
 
+    /// <summary>An installed copy looks for a new version a minute after start-up, then once a day.</summary>
+    private void StartUpdateChecks()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        timer.Tick += async (_, _) =>
+        {
+            timer.Interval = TimeSpan.FromHours(24);
+            if (await Updates.CheckAndDownloadAsync() is { } version)
+                _docks.FirstOrDefault(d => d.IsMain)?.Notify($"AmperDock {version} is ready. It goes in next time AmperDock starts.");
+        };
+        timer.Start();
+    }
+
     /// <summary>
     /// Widgets live on the desktop, not in docks. An earlier build put them in docks: take those out,
     /// and give the desktop a clock if one of them was a clock.
@@ -151,7 +194,7 @@ public partial class App : Application
 
     private void StartDock(string id)
     {
-        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, NewShelf, (kind, _) => _widgets!.Add(kind)))); }
+        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, (kind, _) => _widgets!.Add(kind)))); }
         catch (Exception ex) { Log(ex); }
     }
 
@@ -184,17 +227,15 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// "New desktop shelf": a dock that sits on the desktop under your windows, floating near the top of
-    /// the screen. Desktop icons dropped on it are tidied off the desktop (hidden, never moved).
+    /// Desktop shelves are gone. Anything one tidied away is shown on the desktop again, exactly as it
+    /// was (its original attributes), and the shelf itself is removed.
     /// </summary>
-    private void NewShelf(DockHost from)
+    private void RetireShelves()
     {
-        var work = from.WorkArea;
-        var placement = new DockPlacement(DockEdge.Float, from.Placement.MonitorKey, 0.5f, (int)(work.X + work.W / 2), (int)(work.Y + work.H * 0.18f));
-        var shelves = _docks.Count(d => d.IsShelf);
-        var id = _store!.CreateDock(shelves == 0 ? "Desktop shelf" : $"Desktop shelf {shelves + 1}", placement, from.Appearance);
-        _store.SetBehavior(id, new DockBehavior { DesktopShelf = true });
-        StartDock(id);
+        var restored = ShelfRetirement.Run(_store!);
+        if (restored > 0) Dispatcher.BeginInvoke(() => _docks.FirstOrDefault(d => d.IsMain)?.Notify(
+            restored == 1 ? "The desktop shelf is gone, and its icon is back on your desktop." : $"The desktop shelf is gone, and its {restored} icons are back on your desktop."),
+            DispatcherPriority.ApplicationIdle);
     }
 
     private void RemoveDock(DockHost dock)
@@ -202,13 +243,10 @@ public partial class App : Application
         if (dock.IsMain) return;
         var name = _store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name ?? "this dock";
         var what = dock.ItemCount switch { 0 => "", 1 => " and the 1 item on it", var c => $" and the {c} items on it" };
-        var detail = dock.IsShelf
-            ? "Anything it tidied away goes back on your desktop. Nothing is deleted."
-            : "Only the dock goes. Your apps, files and folders aren't touched.";
+        var detail = "Only the dock goes. Your apps, files and folders aren't touched.";
         var answer = MessageBox.Show($"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}{detail}",
-            dock.IsShelf ? "Remove shelf" : "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+            "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
         if (answer != MessageBoxResult.OK) return;
-        dock.PutEverythingBack();
         if (_appearanceWindows.TryGetValue(dock.ContainerId, out var win)) win.Close();
         _docks.Remove(dock);
         dock.Dispose();

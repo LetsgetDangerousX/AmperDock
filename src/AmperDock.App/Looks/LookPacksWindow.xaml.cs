@@ -148,6 +148,12 @@ public partial class LookPacksWindow : Window
             FolderCards.Children.Add(Card(icon.Name, null, LookCatalog.Image(icon.Preview), null, _selectedIcon?.Id == icon.Id,
                 () => { _selectedIcon = icon; BuildFolders(); }, compact: true));
         ApplyFolderButton.Content = _selectedIcon is null ? "Choose folders…" : $"Give folders the {_selectedIcon.Name} icon…";
+        EverywhereButton.Content = _selectedIcon is null ? "Use for every folder…" : $"Use {_selectedIcon.Name} for every folder…";
+        EverywhereButton.IsEnabled = _selectedIcon is not null;
+        var everywhere = _looks.FolderIconEverywhere;
+        EverywhereUndo.Visibility = everywhere is null ? Visibility.Collapsed : Visibility.Visible;
+        if (everywhere is not null && string.IsNullOrEmpty(EverywhereStatus.Text))
+            EverywhereStatus.Text = $"Every folder uses {_looks.Catalog.FolderIcons.FirstOrDefault(i => i.Id == everywhere.IconId)?.Name ?? "an AmperDock"} icon.";
 
         FolderList.Children.Clear();
         var done = _looks.Folders;
@@ -190,6 +196,21 @@ public partial class LookPacksWindow : Window
             ? null
             : errors.Count == 1 ? errors[0] : $"{errors.Count} folders couldn't be changed. {errors[0]}",
             okText: dlg.FolderNames.Length == 1 ? "Done. Explorer may take a moment to show it." : $"Done: {dlg.FolderNames.Length - errors.Count} folders.");
+    }
+
+    private async void OnEverywhere(object sender, RoutedEventArgs e)
+    {
+        if (_selectedIcon is not { } icon) return;
+        EverywhereStatus.Text = "Waiting for Windows to ask for permission…";
+        var error = await System.Threading.Tasks.Task.Run(() => _looks.SetFolderIconEverywhere(icon));
+        EverywhereStatus.Text = error ?? $"Done: every folder now uses the {icon.Name} icon. Explorer may take a moment.";
+    }
+
+    private async void OnEverywhereUndo(object sender, RoutedEventArgs e)
+    {
+        EverywhereStatus.Text = "Waiting for Windows to ask for permission…";
+        var error = await System.Threading.Tasks.Task.Run(() => _looks.UndoFolderIconEverywhere());
+        EverywhereStatus.Text = error ?? "The usual folder icon is back.";
     }
 
     private void Report(string? error, string? okText = null)

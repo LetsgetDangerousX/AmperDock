@@ -31,7 +31,7 @@ public static class Shortcuts
             var path = sb.ToString();
             return string.IsNullOrWhiteSpace(path) ? null : path;
         }
-        catch (COMException) { return null; }
+        catch (Exception ex) when (ex is COMException or FileNotFoundException or UnauthorizedAccessException or IOException) { return null; }   // a missing or unreadable shortcut
         finally { if (link is not null) Marshal.ReleaseComObject(link); }
     }
 

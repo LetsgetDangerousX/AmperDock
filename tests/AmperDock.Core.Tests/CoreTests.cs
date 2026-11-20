@@ -384,6 +384,19 @@ public class DesktopWidgetTests
     }
 }
 
+public class WeatherCodeTests
+{
+    [Theory]
+    [InlineData(0, "Clear", "sun")]
+    [InlineData(2, "Partly cloudy", "partly")]
+    [InlineData(63, "Rain", "rain")]
+    [InlineData(73, "Snow", "snow")]
+    [InlineData(95, "Thunderstorm", "storm")]
+    [InlineData(45, "Foggy", "fog")]
+    public void Codes_read_as_plain_words(int code, string words, string picture) =>
+        Assert.Equal((words, picture), DesktopWidget.WeatherCode(code));
+}
+
 public class ThemeFieldTests
 {
     [Fact]

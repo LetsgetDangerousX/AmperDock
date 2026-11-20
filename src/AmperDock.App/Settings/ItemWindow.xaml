@@ -65,6 +65,7 @@
         <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,24,0,4" Text="Icon"/>
         <TextBlock x:Name="IconSource" Style="{StaticResource Text.Caption}" Margin="0,0,0,8" TextWrapping="Wrap"/>
         <WrapPanel>
+          <Button Style="{StaticResource Btn.Primary}" Content="Choose an AmperDock icon…" Click="OnIconLibrary" Margin="0,0,8,8"/>
           <Button Style="{StaticResource Btn.Secondary}" Content="Use a picture or .ico…" Click="OnIconImage" Margin="0,0,8,8"/>
           <Button Style="{StaticResource Btn.Secondary}" Content="Pick from an app or DLL…" Click="OnIconPick" Margin="0,0,8,8"/>
           <Button x:Name="ResetIconButton" Style="{StaticResource Btn.Ghost}" Content="Use the default icon" Click="OnIconReset" Margin="0,0,0,8"/>

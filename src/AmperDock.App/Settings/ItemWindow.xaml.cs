@@ -187,6 +187,43 @@ public partial class ItemWindow : Window
         Refresh();
     }
 
+    /// <summary>AmperDock's own icons (the 3D set and the folder icons), as a gallery to click.</summary>
+    private void OnIconLibrary(object sender, RoutedEventArgs e)
+    {
+        var catalog = Looks.LookCatalog.Load();
+        var icons = catalog.IconLibrary.Concat(catalog.FolderIcons).ToList();
+        if (icons.Count == 0) { Error.Text = "AmperDock's icons aren't installed with this copy."; return; }
+        string? chosen = null;
+        var win = new Window
+        {
+            Title = "Choose an icon", Width = 560, Height = 520, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false, ResizeMode = ResizeMode.CanResize,
+        };
+        win.SetResourceReference(BackgroundProperty, "Brush.Bg");
+        win.SetResourceReference(ForegroundProperty, "Brush.Text");
+        win.SetResourceReference(FontFamilyProperty, "Font.Sans");
+        var grid = new WrapPanel { Margin = new Thickness(16) };
+        foreach (var icon in icons)
+        {
+            var label = new TextBlock { Text = icon.Name, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) };
+            var card = new Button
+            {
+                Width = 108, Height = 112, Margin = new Thickness(0, 0, 8, 8), ToolTip = icon.Name,
+                Content = new StackPanel { Children = { new Image { Source = Looks.LookCatalog.Image(icon.Preview), Width = 64, Height = 64 }, label } },
+            };
+            card.SetResourceReference(StyleProperty, "Btn.Ghost");
+            System.Windows.Automation.AutomationProperties.SetName(card, icon.Name);
+            var path = Looks.LookCatalog.FullPath(icon.Icon);
+            card.Click += (_, _) => { chosen = path; win.DialogResult = true; };
+            grid.Children.Add(card);
+        }
+        win.Content = new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        if (win.ShowDialog() != true || chosen is null) return;
+        _iconPath = new IconRef(chosen, 0).ToString();   // copied next to AmperDock's settings on Save, so it survives updates
+        Error.Text = "";
+        Refresh();
+    }
+
     private void OnIconReset(object sender, RoutedEventArgs e)
     {
         _iconPath = null;
