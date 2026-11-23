@@ -40,11 +40,27 @@
             </WrapPanel>
             <TextBlock x:Name="FoldersNote" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,6"
                        Text="Folder icons go on Documents, Downloads, Pictures, Music and Videos, the folders on your docks, and any you've already customised."/>
-            <StackPanel x:Name="SlideshowChoice" Margin="0,4,0,0">
-              <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,4"
+            <StackPanel x:Name="WallpaperChoice" Margin="0,4,0,0">
+              <TextBlock Style="{StaticResource Text.BodyStrong}" Margin="0,4,0,6" Text="Wallpaper"/>
+              <TextBlock x:Name="SlideshowNote" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,6"
                          Text="You have a wallpaper slideshow running. Setting a wallpaper stops it (Undo starts it again)."/>
-              <RadioButton x:Name="WallSet" GroupName="wall" Content="Set this wallpaper" IsChecked="True" Margin="0,0,0,4"/>
-              <RadioButton x:Name="WallAdd" GroupName="wall" Content="Add it to my slideshow instead"/>
+              <RadioButton x:Name="WallSet" GroupName="wall" Content="Set this wallpaper" Margin="0,0,0,4"/>
+              <RadioButton x:Name="WallAdd" GroupName="wall" Content="Add it to my slideshow" Margin="0,0,0,4"/>
+              <RadioButton x:Name="WallShow" GroupName="wall" Content="Slideshow of all AmperDock wallpapers, starting with this one" IsChecked="True"/>
+              <StackPanel x:Name="ShowOptions" Orientation="Horizontal" Margin="26,6,0,0">
+                <TextBlock Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="0,0,8,0" Text="Change picture every"/>
+                <ComboBox x:Name="ShowInterval" Width="120" SelectedIndex="0" AutomationProperties.Name="Change picture every">
+                  <ComboBoxItem Content="1 minute" Tag="1"/>
+                  <ComboBoxItem Content="10 minutes" Tag="10"/>
+                  <ComboBoxItem Content="30 minutes" Tag="30"/>
+                  <ComboBoxItem Content="1 hour" Tag="60"/>
+                  <ComboBoxItem Content="6 hours" Tag="360"/>
+                  <ComboBoxItem Content="1 day" Tag="1440"/>
+                </ComboBox>
+                <CheckBox x:Name="ShowShuffle" Content="Shuffle" IsChecked="True" VerticalAlignment="Center" Margin="16,0,0,0"/>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="26,6,0,0"
+                         Text="Docks and widgets set to match your wallpaper change colour with every picture."/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
               <Button x:Name="ApplyPackButton" Style="{StaticResource Btn.Primary}" Click="OnApplyPack"/>

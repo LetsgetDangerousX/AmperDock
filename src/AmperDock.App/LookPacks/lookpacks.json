@@ -831,5 +831,122 @@
       "icon": "icons/pal-nap-moon.ico",
       "preview": "previews/icon-pal-nap-moon.png"
     }
+  ],
+  "slideshow_wallpapers": [
+    {
+      "id": "helix-glow",
+      "name": "Helix Glow",
+      "wallpaper": "wallpapers/slideshow/helix-glow.png"
+    },
+    {
+      "id": "cat-constellation",
+      "name": "Cat Constellation",
+      "wallpaper": "wallpapers/slideshow/cat-constellation.png"
+    },
+    {
+      "id": "inventor-sketch",
+      "name": "Inventor's Sketch",
+      "wallpaper": "wallpapers/slideshow/inventor-sketch.png"
+    },
+    {
+      "id": "hilltop-breeze",
+      "name": "Hilltop Breeze",
+      "wallpaper": "wallpapers/slideshow/hilltop-breeze.png"
+    },
+    {
+      "id": "leaf-frame",
+      "name": "Leaf Frame",
+      "wallpaper": "wallpapers/slideshow/leaf-frame.png"
+    },
+    {
+      "id": "melty-planets",
+      "name": "Melty Planets",
+      "wallpaper": "wallpapers/slideshow/melty-planets.png"
+    },
+    {
+      "id": "leaf-wreath",
+      "name": "Leaf Wreath",
+      "wallpaper": "wallpapers/slideshow/leaf-wreath.png"
+    },
+    {
+      "id": "little-boo",
+      "name": "Little Boo",
+      "wallpaper": "wallpapers/slideshow/little-boo.png"
+    },
+    {
+      "id": "pumpkin-lane",
+      "name": "Pumpkin Lane",
+      "wallpaper": "wallpapers/slideshow/pumpkin-lane.png"
+    },
+    {
+      "id": "twilight-cats",
+      "name": "Twilight Cats",
+      "wallpaper": "wallpapers/slideshow/twilight-cats.png"
+    },
+    {
+      "id": "fox-meadow",
+      "name": "Fox Meadow",
+      "wallpaper": "wallpapers/slideshow/fox-meadow.png"
+    },
+    {
+      "id": "tea-time",
+      "name": "Tea Time",
+      "wallpaper": "wallpapers/slideshow/tea-time.png"
+    },
+    {
+      "id": "frog-leaves",
+      "name": "Frog in the Leaves",
+      "wallpaper": "wallpapers/slideshow/frog-leaves.png"
+    },
+    {
+      "id": "neon-ring",
+      "name": "Neon Ring",
+      "wallpaper": "wallpapers/slideshow/neon-ring.png"
+    },
+    {
+      "id": "light-ribbons",
+      "name": "Light Ribbons",
+      "wallpaper": "wallpapers/slideshow/light-ribbons.png"
+    },
+    {
+      "id": "neon-stripes",
+      "name": "Neon Stripes",
+      "wallpaper": "wallpapers/slideshow/neon-stripes.png"
+    },
+    {
+      "id": "neon-skyline",
+      "name": "Neon Skyline",
+      "wallpaper": "wallpapers/slideshow/neon-skyline.png"
+    },
+    {
+      "id": "study-desk",
+      "name": "Study Desk",
+      "wallpaper": "wallpapers/slideshow/study-desk.png"
+    },
+    {
+      "id": "witch-nap",
+      "name": "Witch's Nap",
+      "wallpaper": "wallpapers/slideshow/witch-nap.png"
+    },
+    {
+      "id": "rainy-lane",
+      "name": "Rainy Lane",
+      "wallpaper": "wallpapers/slideshow/rainy-lane.png"
+    },
+    {
+      "id": "pumpkin-peek",
+      "name": "Pumpkin Peek",
+      "wallpaper": "wallpapers/slideshow/pumpkin-peek.png"
+    },
+    {
+      "id": "lavender-keys",
+      "name": "Lavender Keys",
+      "wallpaper": "wallpapers/slideshow/lavender-keys.png"
+    },
+    {
+      "id": "firefly-ghost",
+      "name": "Firefly Ghost",
+      "wallpaper": "wallpapers/slideshow/firefly-ghost.png"
+    }
   ]
 }

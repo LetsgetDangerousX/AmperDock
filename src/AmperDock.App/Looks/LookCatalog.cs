@@ -9,6 +9,9 @@ namespace AmperDock.App.Looks;
 public sealed record CursorSetInfo(string Id, string Name, string Arrow, string Hand,
     [property: JsonPropertyName("preview_arrow")] string PreviewArrow, [property: JsonPropertyName("preview_hand")] string PreviewHand);
 
+/// <summary>An extra wallpaper that only appears in the AmperDock slideshow (not tied to a theme pack).</summary>
+public sealed record SlideshowWallpaperInfo(string Id, string Name, string Wallpaper);
+
 public sealed record FolderIconInfo(string Id, string Name, string Icon, string Preview, string? Style = null);
 
 /// <summary>A cursor trail and how its particles move. Units: DIPs and seconds. Ranges are [min, max].</summary>
@@ -38,6 +41,7 @@ public sealed class LookCatalog
     public List<TrailInfo> Trails { get; init; } = [];
     [JsonPropertyName("theme_packs")] public List<ThemePackInfo> ThemePacks { get; init; } = [];
     [JsonPropertyName("icon_library")] public List<FolderIconInfo> IconLibrary { get; init; } = [];
+    [JsonPropertyName("slideshow_wallpapers")] public List<SlideshowWallpaperInfo> SlideshowWallpapers { get; init; } = [];
 
     public static string Root => Path.Combine(AppContext.BaseDirectory, "LookPacks");
 

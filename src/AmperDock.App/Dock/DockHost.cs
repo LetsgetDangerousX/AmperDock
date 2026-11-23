@@ -670,7 +670,11 @@ public sealed class DockHost : IDisposable
 
     private void SetBehavior(DockBehavior b)
     {
+        var reserved = ReservesSpace;
         SaveBehavior(b);
+        // auto-hide or "keep windows clear" changed: let go of (or take back) the screen edge right now,
+        // or maximised windows keep stopping short of a dock that's hidden
+        if (ReservesSpace != reserved) { _appBarRect = default; Place(); }
         if (!b.Previews) HidePreview();
         _pointerLeftAt = Environment.TickCount64;
         Kick();
@@ -1346,8 +1350,6 @@ public sealed class DockHost : IDisposable
                 break;
             case Reserve:
                 SetBehavior(_behavior with { ReserveSpace = !_behavior.ReserveSpace });
-                _appBarRect = default;
-                Place();
                 Toast(_behavior.ReserveSpace ? "Maximised windows now stop at the dock." : "Windows can go under the dock again.");
                 break;
             case OpenApps:

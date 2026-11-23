@@ -24,6 +24,20 @@ public sealed record ThemePackInfo
 [Flags]
 public enum PackParts { None = 0, Wallpaper = 1, Dock = 2, Cursors = 4, Trail = 8, Folders = 16, All = 31 }
 
+/// <summary>How a pack's wallpaper goes on the desktop.</summary>
+public enum WallpaperMode
+{
+    Set,                  // just this picture (stops a running slideshow; Undo starts it again)
+    AddToMySlideshow,     // copy it into the person's running slideshow folder
+    AmperDockSlideshow,   // a slideshow of every pack's wallpaper, starting with this one
+}
+
+/// <summary>Timing for <see cref="WallpaperMode.AmperDockSlideshow"/>.</summary>
+public sealed record SlideshowTiming(TimeSpan Interval, bool Shuffle)
+{
+    public static readonly SlideshowTiming Default = new(TimeSpan.FromMinutes(1), true);
+}
+
 /// <summary>The app's docks, as the look service needs them: read and replace each dock's look, and list folders on them.</summary>
 public interface IDockLooks
 {
@@ -92,10 +106,11 @@ public sealed partial class LookService
     }
 
     /// <summary>
-    /// Apply the ticked parts of a pack. <paramref name="addToSlideshow"/> copies the wallpaper into the
-    /// running slideshow's folder instead of replacing the slideshow. Returns problems, if any, in plain words.
+    /// Apply the ticked parts of a pack. <paramref name="mode"/> says how the wallpaper goes on (see
+    /// <see cref="WallpaperMode"/>); <paramref name="timing"/> is used for an AmperDock slideshow.
+    /// Returns problems, if any, in plain words.
     /// </summary>
-    public List<string> ApplyPack(ThemePackInfo pack, PackParts parts, bool addToSlideshow, IDockLooks docks)
+    public List<string> ApplyPack(ThemePackInfo pack, PackParts parts, WallpaperMode mode, IDockLooks docks, SlideshowTiming? timing = null)
     {
         var problems = new List<string>();
         var rec = AppliedPack ?? new PackRecord();
@@ -108,7 +123,14 @@ public sealed partial class LookService
                 var dir = Path.Combine(LooksDir, "wallpapers");
                 Directory.CreateDirectory(dir);
                 var source = LookCatalog.FullPath(pack.Wallpaper);
-                if (addToSlideshow && Wallpapers.SlideshowFolder() is { } folder)
+                if (mode == WallpaperMode.AmperDockSlideshow)
+                {
+                    var first = FillSlideshowFolder(pack);
+                    rec = rec with { WallpaperBefore = rec.WallpaperBefore ?? Wallpapers.Snapshot() };
+                    var t = timing ?? SlideshowTiming.Default;
+                    Wallpapers.StartSlideshow(SlideshowDir, t.Interval, t.Shuffle, first);
+                }
+                else if (mode == WallpaperMode.AddToMySlideshow && Wallpapers.SlideshowFolder() is { } folder)
                 {
                     if (rec.AddedToSlideshow is { } old && File.Exists(old)) File.Delete(old);   // one pack picture at a time
                     var dest = Path.Combine(folder, $"AmperDock {pack.Name}.png");
@@ -218,6 +240,35 @@ public sealed partial class LookService
         AppliedPack = null;
         Changed?.Invoke();
         return problems;
+    }
+
+    /// <summary>Where the AmperDock slideshow's pictures live (AmperDock's own folder, never the person's).</summary>
+    public static string SlideshowDir => Path.Combine(LooksDir, "wallpapers", "slideshow");
+
+    /// <summary>
+    /// Copy every pack's wallpaper (and any extra slideshow pictures in the catalog) into <see cref="SlideshowDir"/>,
+    /// the chosen pack's first by name. Pictures from older versions are cleared out. Returns the chosen pack's copy.
+    /// </summary>
+    private string FillSlideshowFolder(ThemePackInfo chosen)
+    {
+        Directory.CreateDirectory(SlideshowDir);
+        foreach (var old in Directory.EnumerateFiles(SlideshowDir, "*.png")) File.Delete(old);
+        var pictures = Catalog.ThemePacks.Where(p => p.Id != chosen.Id).Select(p => (p.Id, p.Wallpaper))
+            .Concat(Catalog.SlideshowWallpapers.Select(w => (w.Id, w.Wallpaper)))
+            .Prepend((chosen.Id, chosen.Wallpaper))
+            .Where(p => p.Wallpaper.Length > 0)
+            .DistinctBy(p => p.Wallpaper)
+            .ToList();
+        string? first = null;
+        for (var i = 0; i < pictures.Count; i++)
+        {
+            var source = LookCatalog.FullPath(pictures[i].Wallpaper);
+            if (!File.Exists(source)) continue;
+            var dest = Path.Combine(SlideshowDir, $"{i:00} {pictures[i].Id}.png");
+            File.Copy(source, dest, overwrite: true);
+            first ??= dest;
+        }
+        return first ?? throw new IOException("No slideshow pictures were found.");
     }
 
     private static DockAppearance? DockThemeCatalog(string id) => global::AmperDock.App.Dock.DockThemeCatalog.Shared.Find(id)?.Appearance;

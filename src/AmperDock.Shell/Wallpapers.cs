@@ -132,6 +132,31 @@ public static class Wallpapers
         return 0;
     });
 
+    private const int DSO_SHUFFLEIMAGES = 1;
+
+    /// <summary>
+    /// Start a slideshow of every picture in <paramref name="folder"/>, filling the screen, moving on every
+    /// <paramref name="interval"/>. <paramref name="first"/> (a picture in that folder) is shown straight away.
+    /// </summary>
+    public static void StartSlideshow(string folder, TimeSpan interval, bool shuffle, string? first = null) => With(w =>
+    {
+        w.SetPosition(4 /* DWPOS_FILL */);
+        if (first is not null) w.SetWallpaper(null, first);
+        Marshal.ThrowExceptionForHR(SHParseDisplayName(folder, 0, out var pidl, 0, out _));
+        try
+        {
+            Marshal.ThrowExceptionForHR(SHCreateShellItemArrayFromIDLists(1, [pidl], out var array));
+            try
+            {
+                w.SetSlideshow(array);
+                w.SetSlideshowOptions(shuffle ? DSO_SHUFFLEIMAGES : 0, (uint)Math.Clamp(interval.TotalMilliseconds, 10_000, uint.MaxValue));
+            }
+            finally { Marshal.Release(array); }
+        }
+        finally { CoTaskMemFree(pidl); }
+        return 0;
+    });
+
     /// <summary>Put the desktop back the way a snapshot found it. Pictures that no longer exist are skipped.</summary>
     public static void Restore(WallpaperSnapshot s) => With(w =>
     {

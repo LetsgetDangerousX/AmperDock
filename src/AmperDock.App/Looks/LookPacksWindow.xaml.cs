@@ -77,8 +77,11 @@ public partial class LookPacksWindow : Window
         }
         string? slideshow = null;
         try { slideshow = AmperDock.Shell.Wallpapers.SlideshowFolder(); } catch (System.Runtime.InteropServices.COMException) { }
-        SlideshowChoice.Visibility = slideshow is null ? Visibility.Collapsed : Visibility.Visible;
-        if (slideshow is null) WallSet.IsChecked = true;
+        SlideshowNote.Visibility = WallAdd.Visibility = slideshow is null ? Visibility.Collapsed : Visibility.Visible;
+        if (slideshow is null && WallAdd.IsChecked == true) WallShow.IsChecked = true;
+        ShowOptions.IsEnabled = WallShow.IsChecked == true;
+        WallShow.Checked -= OnWallModeChanged; WallShow.Unchecked -= OnWallModeChanged;
+        WallShow.Checked += OnWallModeChanged; WallShow.Unchecked += OnWallModeChanged;
         UndoPackButton.IsEnabled = _looks.AppliedPack is not null;
     }
 
@@ -95,12 +98,21 @@ public partial class LookPacksWindow : Window
         Mouse.OverrideCursor = Cursors.Wait;
         try
         {
-            var problems = _looks.ApplyPack(pack, parts, WallAdd.IsChecked == true, _docks);
-            PackStatus.Text = problems.Count == 0 ? $"{pack.Name} is on. Undo puts everything back." : string.Join(" ", problems);
+            var mode = WallShow.IsChecked == true ? WallpaperMode.AmperDockSlideshow
+                : WallAdd.IsChecked == true ? WallpaperMode.AddToMySlideshow : WallpaperMode.Set;
+            var minutes = (ShowInterval.SelectedItem as ComboBoxItem)?.Tag is string tag && int.TryParse(tag, out var m) ? m : 1;
+            var timing = new SlideshowTiming(TimeSpan.FromMinutes(minutes), ShowShuffle.IsChecked == true);
+            var problems = _looks.ApplyPack(pack, parts, mode, _docks, timing);
+            PackStatus.Text = problems.Count > 0 ? string.Join(" ", problems)
+                : mode == WallpaperMode.AmperDockSlideshow && parts.HasFlag(PackParts.Wallpaper)
+                    ? $"{pack.Name} is on, with the wallpaper slideshow running. Undo puts everything back."
+                    : $"{pack.Name} is on. Undo puts everything back.";
         }
         catch (Exception ex) { App.Log(ex); PackStatus.Text = $"That didn't work: {ex.Message}"; }
         finally { Mouse.OverrideCursor = null; }
     }
+
+    private void OnWallModeChanged(object sender, RoutedEventArgs e) => ShowOptions.IsEnabled = WallShow.IsChecked == true;
 
     private void OnUndoPack(object sender, RoutedEventArgs e)
     {
