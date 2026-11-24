@@ -1,0 +1,11 @@
+Mochi's purrs and meows are real recordings of cats from Wikimedia Commons, trimmed and evened out in
+volume (replica/tools/build_mochi_sounds.py). None of them needs attribution; they're credited anyway.
+
+purr.wav      "Whiskers' purr edit" by Adam Cuerden, edited by X!. Public domain.
+              https://commons.wikimedia.org/wiki/File:Whiskers%27_purr_edit.ogg
+meow-1.wav    "Maullido de gata hembra joven" by George Miquilena. CC0.
+              https://commons.wikimedia.org/wiki/File:Maullido_de_gata_hembra_joven.ogg
+meow-2.wav,   "Meow of a pleading cat" by Heismark. Public domain.
+meow-3.wav    https://commons.wikimedia.org/wiki/File:Meow_of_a_pleading_cat.oga
+meow-4.wav,   "GettingOutImpatient" by Heismark. Public domain.
+meow-5.wav    https://commons.wikimedia.org/wiki/File:GettingOutImpatient.ogg

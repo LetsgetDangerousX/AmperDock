@@ -1,0 +1,93 @@
+{
+ "bowl-full": {
+  "thing": "bowl",
+  "width": 119,
+  "height": 85,
+  "base_x": 59.0,
+  "base_y": 82.0
+ },
+ "bowl-half": {
+  "thing": "bowl",
+  "width": 120,
+  "height": 83,
+  "base_x": 60.0,
+  "base_y": 80.0
+ },
+ "bowl-empty": {
+  "thing": "bowl",
+  "width": 119,
+  "height": 85,
+  "base_x": 59.0,
+  "base_y": 81.0
+ },
+ "eat-arrive": {
+  "thing": "bowl",
+  "width": 329,
+  "height": 194,
+  "base_x": 273.0,
+  "base_y": 189.0
+ },
+ "eat-full": {
+  "thing": "bowl",
+  "width": 302,
+  "height": 192,
+  "base_x": 215.5,
+  "base_y": 187.0
+ },
+ "eat-half": {
+  "thing": "bowl",
+  "width": 290,
+  "height": 190,
+  "base_x": 205.0,
+  "base_y": 185.0
+ },
+ "eat-done": {
+  "thing": "bowl",
+  "width": 266,
+  "height": 224,
+  "base_x": 54.5,
+  "base_y": 219.0
+ },
+ "post": {
+  "thing": "post",
+  "width": 188,
+  "height": 286,
+  "base_x": 94.0,
+  "base_y": 284.0
+ },
+ "post-scratch": {
+  "thing": "post",
+  "width": 288,
+  "height": 286,
+  "base_x": 87.5,
+  "base_y": 284.0
+ },
+ "post-perch": {
+  "thing": "post",
+  "width": 239,
+  "height": 329,
+  "base_x": 114.0,
+  "base_y": 328.0
+ },
+ "house": {
+  "thing": "house",
+  "width": 256,
+  "height": 226,
+  "base_x": 158.0,
+  "base_y": 216.0
+ },
+ "house-peek": {
+  "thing": "house",
+  "width": 256,
+  "height": 226,
+  "base_x": 157.0,
+  "base_y": 218.0
+ },
+ "house-sleep": {
+  "thing": "house",
+  "width": 268,
+  "height": 226,
+  "base_x": 157.5,
+  "base_y": 216.0
+ }
+}

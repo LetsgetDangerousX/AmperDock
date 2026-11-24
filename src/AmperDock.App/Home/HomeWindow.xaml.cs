@@ -375,7 +375,13 @@ public partial class HomeWindow : Window
             ["clock"] = "The time and date",
             ["countdown"] = "Days until something",
             ["weather"] = "Today's weather, for your town",
-            ["mochi"] = "A cat who wanders, plays with yarn and naps",
+            ["mochi"] = "A cat who wanders, plays, eats and naps",
+            [MochiThingWidget.Post] = "Mochi scratches it, and perches on top",
+            [MochiThingWidget.Bowl] = "Double-click to fill it; Mochi eats",
+            [MochiThingWidget.House] = "Mochi peeks out and sleeps inside",
+            [PalWidget.Bella] = "The puppy from Racing for Pi",
+            [PalWidget.Bunny] = "The bunny from Racing for Pi",
+            [PalWidget.Dino] = "The dino from Racing for Pi",
         };
         foreach (var (kind, name) in DesktopWidgetKinds.All)
         {
