@@ -1021,11 +1021,11 @@ public sealed class MochiWidget : WidgetWindow
 
     private string PoseFor(long ms) => _act switch
     {
-        Act.Walk => $"walk-{ms / 150 % 4 + 1}",
+        Act.Walk => $"walk-{ms / 115 % 8 + 1}",   // one calm face; her legs, body and tail do the moving
         // breathing: the curled-up pose and the one with z's take turns, with a twitch now and then
         Act.Sleep => ms % 9000 is > 6000 and < 6350 ? "sleep-twitch" : ms / 1300 % 2 == 0 ? "sleep" : "sleep-breathe",
         Act.Wake => "stretch",
-        Act.Happy => "walk-1",
+        Act.Happy => "happy",
         Act.Play => ms switch
         {
             < 900 => "play-crouch",
@@ -1035,7 +1035,7 @@ public sealed class MochiWidget : WidgetWindow
             < 4500 => "play-roll",
             _ => "play-sit",
         },
-        _ => "walk-3",
+        _ => "stand",
     };
 
     private string? _shown;

@@ -659,7 +659,7 @@
       "id": "cloud",
       "name": "Cloud",
       "season": null,
-      "blurb": "A sky-blue dock edged with cloud puffs, and the cloud friend.",
+      "blurb": "A puffy cloud-shaped dock, with the cloud friend riding along.",
       "preview": "previews/cloud.png",
       "look": {
         "style": "gradient",
@@ -671,70 +671,25 @@
         "outline_color": "#A9C8EE",
         "outline_width": 1.5,
         "roundness": 0.5,
+        "shape": "cloud",
         "indicator": "twinkle",
         "theme": "cloud",
-        "decorations": true,
-        "shape": "rounded"
+        "decorations": true
       },
       "ears": false,
       "snow": false,
       "decor": [
         {
-          "sprite": "decor/cloudpuff.png",
-          "from": "start",
-          "offset": 1.1,
-          "edge": "top",
-          "dy": 0.0,
-          "anchor": [
-            0.5,
-            0.74
-          ],
-          "size": 0.7,
-          "behind": true,
-          "upright": true,
-          "mirror": false
-        },
-        {
-          "sprite": "decor/cloudpuff.png",
+          "sprite": "decor/cloudfriend.png",
           "from": "end",
-          "offset": 1.6,
+          "offset": 0.55,
           "edge": "top",
           "dy": 0.0,
           "anchor": [
             0.5,
-            0.76
-          ],
-          "size": 0.6,
-          "behind": true,
-          "upright": true,
-          "mirror": true
-        },
-        {
-          "sprite": "decor/cloudpuff.png",
-          "from": "end",
-          "offset": 0.5,
-          "edge": "top",
-          "dy": 0.0,
-          "anchor": [
-            0.5,
-            0.72
+            0.9
           ],
           "size": 0.75,
-          "behind": true,
-          "upright": true,
-          "mirror": false
-        },
-        {
-          "sprite": "decor/cloudfriend.png",
-          "from": "start",
-          "offset": 0.05,
-          "edge": "top",
-          "dy": 0.0,
-          "anchor": [
-            0.45,
-            0.86
-          ],
-          "size": 0.8,
           "behind": false,
           "upright": true,
           "mirror": false

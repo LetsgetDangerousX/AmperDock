@@ -571,9 +571,32 @@ public sealed class DockHost : IDisposable
 
     private int IconPixelSize => (int)Math.Min(256, MathF.Ceiling(_m.MagnifiedSize / 32) * 32);
 
+    /// <summary>The AmperDock item's target: it opens the AmperDock window instead of starting a program.</summary>
+    public const string HomeTarget = "amperdock:home";
+
+    /// <summary>Mochi peeks, the AmperDock logo, as icon pixels (premultiplied BGRA).</summary>
+    public static IconPixels? LogoPixels(int size)
+    {
+        try
+        {
+            var img = new System.Windows.Media.Imaging.BitmapImage();
+            img.BeginInit();
+            img.UriSource = new Uri("pack://application:,,,/Assets/AmperDock.png");
+            img.DecodePixelWidth = Math.Min(256, size);
+            img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            img.EndInit();
+            var bgra = new System.Windows.Media.Imaging.FormatConvertedBitmap(img, System.Windows.Media.PixelFormats.Pbgra32, null, 0);
+            var bytes = new byte[bgra.PixelWidth * bgra.PixelHeight * 4];
+            bgra.CopyPixels(bytes, bgra.PixelWidth * 4, 0);
+            return new IconPixels(bgra.PixelWidth, bgra.PixelHeight, bytes);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { App.Log(ex); return null; }
+    }
+
     private void LoadIcon(DockItem item, int iconPx)
     {
-        var px = ShellIcons.ForItem(item.IconPath, item.Target, Math.Max(iconPx, 128));
+        var px = item.Target == HomeTarget && item.IconPath is null ? LogoPixels(Math.Max(iconPx, 128))
+            : ShellIcons.ForItem(item.IconPath, item.Target, Math.Max(iconPx, 128));
         if (px is not null) _renderer.SetIcon(item.Id, px.Width, px.Height, px.Bgra);
     }
 
@@ -920,7 +943,7 @@ public sealed class DockHost : IDisposable
         var (decor, extent) = Decorations(bg);
         var attach = Attachments.Select(a => a.ToDraw()).ToList();
         _renderer.Draw(new DockScene(_frame.ToWindow(bg), _appearance.RadiusFor(bg.H), icons, indicators, label, _scale,
-            _frame.Edge, _appearance.Shape == DockShapes.Leaf ? BandShape.Leaf : BandShape.Rounded,
+            _frame.Edge, _appearance.Shape switch { DockShapes.Leaf => BandShape.Leaf, DockShapes.Cloud => BandShape.Cloud, _ => BandShape.Rounded },
             Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor,
             Attach: attach, Reflection: _appearance.Reflection / 100f), _style);
         _lastBackground = bg;
@@ -957,6 +980,13 @@ public sealed class DockHost : IDisposable
             x0 -= DockRenderer.LeafTip * bg.H;
             x1 += (DockRenderer.LeafTip + 0.36f) * bg.H;   // tip plus the stem
             y0 -= 0.08f * bg.H;
+        }
+        else if (_appearance.Shape == DockShapes.Cloud)
+        {
+            // the end puffs and the puffs along the top, plus the outline round them
+            x0 -= DockRenderer.CloudEnd * bg.H + 3;
+            x1 += DockRenderer.CloudEnd * bg.H + 3;
+            y0 -= DockRenderer.CloudRise * bg.H + 3;
         }
         foreach (var a in Attachments)
         {
@@ -1293,6 +1323,7 @@ public sealed class DockHost : IDisposable
 
     private void LaunchOrActivate(DockItem item, bool forceNew)
     {
+        if (item.Target == HomeTarget) { _commands.OpenHome(this); return; }
         forceNew |= item.AllowMultiple;
         if (!forceNew && _running.TryGetValue(item.Id, out var windows) && windows.Count > 0)
         {
@@ -1347,151 +1378,152 @@ public sealed class DockHost : IDisposable
         HidePreview();
         var (rects, _) = CurrentRects();
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
-        var menu = CreatePopupMenu();
-        var position = CreatePopupMenu();
+        var menu = new DockMenu();
+        var position = new DockMenu();
         const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, Home = 19, WidgetBase = 40;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         const int HideOff = 30, HideTip = 31, HideBase = 32;
         if (hit >= 0 && IsOpenApp(_items[hit]))
         {
-            AppendMenu(menu, _items[hit].Target is null ? MF_STRING | MF_GRAYED : MF_STRING, KeepOnDock, "&Keep on dock");
-            AppendMenu(menu, MF_SEPARATOR, 0, null);
+            menu.Add(_items[hit].Target is null ? MF_STRING | MF_GRAYED : MF_STRING, KeepOnDock, "&Keep on dock");
+            menu.Add(MF_SEPARATOR, 0, null);
         }
         else if (hit >= 0)
         {
-            AppendMenu(menu, MF_STRING, Edit, "&Edit name, location and icon…");
-            AppendMenu(menu, MF_STRING, OpenLocation, "&Open file location");
-            AppendMenu(menu, MF_STRING, Remove, "&Remove from dock");
-            AppendMenu(menu, MF_SEPARATOR, 0, null);
+            menu.Add(MF_STRING, Edit, "&Edit name, location and icon…");
+            menu.Add(MF_STRING, OpenLocation, "&Open file location");
+            menu.Add(MF_STRING, Remove, "&Remove from dock");
+            menu.Add(MF_SEPARATOR, 0, null);
         }
-        AppendMenu(menu, MF_STRING, AddApp, "&Add an app…");
-        AppendMenu(menu, MF_STRING, AddFile, "Add a f&ile…");
-        AppendMenu(menu, MF_STRING, AddFolder, "Add a &folder…");
-        var widgetMenu = CreatePopupMenu();
-        for (var i = 0; i < DesktopWidgetKinds.All.Length; i++) AppendMenu(widgetMenu, MF_STRING, WidgetBase + i, DesktopWidgetKinds.All[i].Name);
-        AppendMenu(menu, MF_POPUP, widgetMenu, "Add a desktop &widget");
-        AppendMenu(menu, MF_SEPARATOR, 0, null);
+        menu.Add(MF_STRING, AddApp, "&Add an app…");
+        menu.Add(MF_STRING, AddFile, "Add a f&ile…");
+        menu.Add(MF_STRING, AddFolder, "Add a &folder…");
+        var widgetMenu = new DockMenu();
+        for (var i = 0; i < DesktopWidgetKinds.All.Length; i++) widgetMenu.Add(MF_STRING, WidgetBase + i, DesktopWidgetKinds.All[i].Name);
+        menu.Add(MF_POPUP, widgetMenu, "Add a desktop &widget");
+        menu.Add(MF_SEPARATOR, 0, null);
 
         uint Check(DockEdge e) => MF_STRING | (_placement.Edge == e ? MF_CHECKED : 0);
-        AppendMenu(position, Check(DockEdge.Bottom), PosBottom, "&Bottom");
-        AppendMenu(position, Check(DockEdge.Top), PosTop, "&Top");
-        AppendMenu(position, Check(DockEdge.Left), PosLeft, "&Left");
-        AppendMenu(position, Check(DockEdge.Right), PosRight, "&Right");
-        AppendMenu(position, Check(DockEdge.Float), PosFloat, "&Floating");
-        AppendMenu(position, MF_SEPARATOR, 0, null);
-        AppendMenu(position, MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
-        AppendMenu(menu, MF_POPUP, position, "&Position");
-        var hideMenu = CreatePopupMenu();
-        AppendMenu(hideMenu, MF_STRING | (_behavior.AutoHide ? 0 : MF_CHECKED), HideOff, "&Off");
-        AppendMenu(hideMenu, MF_SEPARATOR, 0, null);
-        AppendMenu(hideMenu, MF_STRING | MF_GRAYED, HideTip, "On: rest the pointer at the screen edge to bring it back");
+        position.Add(Check(DockEdge.Bottom), PosBottom, "&Bottom");
+        position.Add(Check(DockEdge.Top), PosTop, "&Top");
+        position.Add(Check(DockEdge.Left), PosLeft, "&Left");
+        position.Add(Check(DockEdge.Right), PosRight, "&Right");
+        position.Add(Check(DockEdge.Float), PosFloat, "&Floating");
+        position.Add(MF_SEPARATOR, 0, null);
+        position.Add(MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
+        menu.Add(MF_POPUP, position, "&Position");
+        var hideMenu = new DockMenu();
+        hideMenu.Add(MF_STRING | (_behavior.AutoHide ? 0 : MF_CHECKED), HideOff, "&Off");
+        hideMenu.Add(MF_SEPARATOR, 0, null);
+        hideMenu.Add(MF_STRING | MF_GRAYED, HideTip, "On: rest the pointer at the screen edge to bring it back");
         for (var i = 0; i < RevealDelays.Length; i++)
-            AppendMenu(hideMenu, MF_STRING | (_behavior.AutoHide && _behavior.RevealDelayMs == RevealDelays[i].Ms ? MF_CHECKED : 0), HideBase + i, RevealDelays[i].Menu);
-        AppendMenu(menu, MF_POPUP | (_placement.Edge == DockEdge.Float ? MF_GRAYED : 0), hideMenu,
+            hideMenu.Add(MF_STRING | (_behavior.AutoHide && _behavior.RevealDelayMs == RevealDelays[i].Ms ? MF_CHECKED : 0), HideBase + i, RevealDelays[i].Menu);
+        menu.Add(MF_POPUP | (_placement.Edge == DockEdge.Float ? MF_GRAYED : 0), hideMenu,
             _placement.Edge == DockEdge.Float ? "Auto-&hide (dock it to a screen edge first)" : "Auto-&hide");
-        AppendMenu(menu, MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
-        AppendMenu(menu, MF_STRING | (ShowsOpenApps ? MF_CHECKED : 0), OpenApps, "Show open apps &too");
-        AppendMenu(menu, _placement.Edge == DockEdge.Float || _behavior.AutoHide ? MF_STRING | MF_GRAYED
+        menu.Add(MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
+        menu.Add(MF_STRING | (ShowsOpenApps ? MF_CHECKED : 0), OpenApps, "Show open apps &too");
+        menu.Add(_placement.Edge == DockEdge.Float || _behavior.AutoHide ? MF_STRING | MF_GRAYED
             : MF_STRING | (_behavior.ReserveSpace ? MF_CHECKED : 0), Reserve, "Keep windows &clear of the dock");
-        AppendMenu(menu, MF_STRING, Appearance, "Dock appearan&ce…");
-        AppendMenu(menu, MF_STRING, NewDock, "&New dock");
-        if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, "Remove &this dock…");
-        AppendMenu(menu, MF_STRING, Looks, "&Look packs: cursors, trails, folder icons…");
-        AppendMenu(menu, MF_SEPARATOR, 0, null);
-        AppendMenu(menu, MF_STRING, Home, "Open &AmperDock (all settings)…");
-        AppendMenu(menu, MF_STRING, Quit, "&Quit AmperDock");
+        menu.Add(MF_STRING, Appearance, "Dock appearan&ce…");
+        menu.Add(MF_STRING, NewDock, "&New dock");
+        if (!IsMain) menu.Add(MF_STRING, RemoveDock, "Remove &this dock…");
+        menu.Add(MF_STRING, Looks, "&Look packs: cursors, trails, folder icons…");
+        menu.Add(MF_SEPARATOR, 0, null);
+        menu.Add(MF_STRING, Home, "Open &AmperDock (all settings)…");
+        menu.Add(MF_STRING, Quit, "&Quit AmperDock");
 
-        var (wx, wy) = _frame.ToWindow(x, y);
-        var pt = new POINT { X = (int)wx, Y = (int)wy };
-        ClientToScreen(_hwnd, ref pt);
-        SetForegroundWindow(_hwnd);   // required so the menu closes when you click elsewhere
-        _menuOpen = true;             // the menu runs its own message loop; the preview timer still ticks inside it
-        int cmd;
-        try { cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, 0); }
-        finally { _menuOpen = false; _menuClosedAt = Environment.TickCount64; }
-        DestroyMenu(menu);            // also destroys the submenu
+        // painted in the dock's own colours; the preview timer keeps ticking while it's open
+        var hitId = hit >= 0 ? _items[hit].Id : null;
+        _menuOpen = true;
+        menu.Show(DockMenu.PaletteFor(_style, _theme.DockStyle()), Run, () => { _menuOpen = false; _menuClosedAt = Environment.TickCount64; });
 
-        switch (cmd)
+        void Run(int cmd)
         {
-            case KeepOnDock when hit >= 0 && IsOpenApp(_items[hit]):
-                PinOpenApp(_items[hit]);
-                break;
-            case Reserve:
-                SetBehavior(_behavior with { ReserveSpace = !_behavior.ReserveSpace });
-                Toast(_behavior.ReserveSpace ? "Maximised windows now stop at the dock." : "Windows can go under the dock again.");
-                break;
-            case OpenApps:
-                SetBehavior(_behavior with { ShowOpenApps = !ShowsOpenApps });
-                TaskWatcher.Shared.Refresh();
-                RefreshTasks();
-                break;
-            case Remove when hit >= 0 && !IsOpenApp(_items[hit]):
-                var item = _items[hit];
-                _store.RemoveItem(item.Id);
-                Reload();
-                Toast($"Removed {item.Label}");
-                break;
-            case OpenLocation when hit >= 0 && !IsOpenApp(_items[hit]):
-                var t = _items[hit].Target;
-                if (t is not null && (File.Exists(t) || Directory.Exists(t)))
-                    Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{t}\"") { UseShellExecute = true })?.Dispose();
-                break;
-            case Edit when hit >= 0 && !IsOpenApp(_items[hit]):
-                EditItem(_items[hit]);
-                break;
-            case AddApp:
-                AddFromAppList(after: hit);
-                break;
-            case AddFile:
-                AddFromPicker(folder: false, after: hit);
-                break;
-            case AddFolder:
-                AddFromPicker(folder: true, after: hit);
-                break;
-            case PosBottom or PosTop or PosLeft or PosRight:
-                var edge = cmd switch { PosTop => DockEdge.Top, PosLeft => DockEdge.Left, PosRight => DockEdge.Right, _ => DockEdge.Bottom };
-                ApplyPlacement(new DockPlacement(edge, _monitorKey, 0.5f), save: true);
-                break;
-            case PosFloat:
-                // float a little above where a bottom dock would sit, centred on the monitor
-                ApplyPlacement(new DockPlacement(DockEdge.Float, _monitorKey, 0.5f,
-                    (int)(_work.X + _work.W / 2), (int)(_work.Bottom - _work.H * 0.25f)), save: true);
-                break;
-            case Appearance:
-                _commands.OpenAppearance(this);
-                break;
-            case HideOff:
-                SetBehavior(_behavior with { AutoHide = false });
-                Toast("Auto-hide is off.");
-                break;
-            case >= HideBase when cmd < HideBase + RevealDelays.Length:
-                var delay = RevealDelays[cmd - HideBase];
-                SetBehavior(_behavior with { AutoHide = true, RevealDelayMs = delay.Ms });
-                Toast(delay.Ms == 0 ? "Auto-hide is on: touch the screen edge to bring the dock back."
-                    : $"Auto-hide is on: rest the pointer at the screen edge for {delay.Spoken} to bring the dock back.");
-                break;
-            case Previews:
-                SetBehavior(_behavior with { Previews = !_behavior.Previews });
-                Toast(_behavior.Previews ? "Rest the pointer on an open app to see its windows." : "Window previews are off.");
-                break;
-            case NewDock:
-                _commands.NewDock(this);
-                break;
-            case >= WidgetBase when cmd < WidgetBase + DesktopWidgetKinds.All.Length:
-                _commands.AddWidget(DesktopWidgetKinds.All[cmd - WidgetBase].Kind, this);
-                break;
-            case RemoveDock when !IsMain:
-                _commands.RemoveDock(this);
-                break;
-            case Looks:
-                _commands.OpenLooks();
-                break;
-            case Home:
-                _commands.OpenHome(this);
-                break;
-            case Quit:
-                System.Windows.Application.Current.Shutdown();
-                break;
+            // the dock may have changed while the menu was open (an app opened or closed): find the item again
+            hit = hitId is null ? -1 : _items.FindIndex(i => i.Id == hitId);
+            if (hitId is not null && hit < 0 && cmd is KeepOnDock or Remove or OpenLocation or Edit) return;
+            switch (cmd)
+            {
+                case KeepOnDock when hit >= 0 && IsOpenApp(_items[hit]):
+                    PinOpenApp(_items[hit]);
+                    break;
+                case Reserve:
+                    SetBehavior(_behavior with { ReserveSpace = !_behavior.ReserveSpace });
+                    Toast(_behavior.ReserveSpace ? "Maximised windows now stop at the dock." : "Windows can go under the dock again.");
+                    break;
+                case OpenApps:
+                    SetBehavior(_behavior with { ShowOpenApps = !ShowsOpenApps });
+                    TaskWatcher.Shared.Refresh();
+                    RefreshTasks();
+                    break;
+                case Remove when hit >= 0 && !IsOpenApp(_items[hit]):
+                    var item = _items[hit];
+                    _store.RemoveItem(item.Id);
+                    Reload();
+                    Toast($"Removed {item.Label}");
+                    break;
+                case OpenLocation when hit >= 0 && !IsOpenApp(_items[hit]):
+                    var t = _items[hit].Target;
+                    if (t is not null && (File.Exists(t) || Directory.Exists(t)))
+                        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{t}\"") { UseShellExecute = true })?.Dispose();
+                    break;
+                case Edit when hit >= 0 && !IsOpenApp(_items[hit]):
+                    EditItem(_items[hit]);
+                    break;
+                case AddApp:
+                    AddFromAppList(after: hit);
+                    break;
+                case AddFile:
+                    AddFromPicker(folder: false, after: hit);
+                    break;
+                case AddFolder:
+                    AddFromPicker(folder: true, after: hit);
+                    break;
+                case PosBottom or PosTop or PosLeft or PosRight:
+                    var edge = cmd switch { PosTop => DockEdge.Top, PosLeft => DockEdge.Left, PosRight => DockEdge.Right, _ => DockEdge.Bottom };
+                    ApplyPlacement(new DockPlacement(edge, _monitorKey, 0.5f), save: true);
+                    break;
+                case PosFloat:
+                    // float a little above where a bottom dock would sit, centred on the monitor
+                    ApplyPlacement(new DockPlacement(DockEdge.Float, _monitorKey, 0.5f,
+                        (int)(_work.X + _work.W / 2), (int)(_work.Bottom - _work.H * 0.25f)), save: true);
+                    break;
+                case Appearance:
+                    _commands.OpenAppearance(this);
+                    break;
+                case HideOff:
+                    SetBehavior(_behavior with { AutoHide = false });
+                    Toast("Auto-hide is off.");
+                    break;
+                case >= HideBase when cmd < HideBase + RevealDelays.Length:
+                    var delay = RevealDelays[cmd - HideBase];
+                    SetBehavior(_behavior with { AutoHide = true, RevealDelayMs = delay.Ms });
+                    Toast(delay.Ms == 0 ? "Auto-hide is on: touch the screen edge to bring the dock back."
+                        : $"Auto-hide is on: rest the pointer at the screen edge for {delay.Spoken} to bring the dock back.");
+                    break;
+                case Previews:
+                    SetBehavior(_behavior with { Previews = !_behavior.Previews });
+                    Toast(_behavior.Previews ? "Rest the pointer on an open app to see its windows." : "Window previews are off.");
+                    break;
+                case NewDock:
+                    _commands.NewDock(this);
+                    break;
+                case >= WidgetBase when cmd < WidgetBase + DesktopWidgetKinds.All.Length:
+                    _commands.AddWidget(DesktopWidgetKinds.All[cmd - WidgetBase].Kind, this);
+                    break;
+                case RemoveDock when !IsMain:
+                    _commands.RemoveDock(this);
+                    break;
+                case Looks:
+                    _commands.OpenLooks();
+                    break;
+                case Home:
+                    _commands.OpenHome(this);
+                    break;
+                case Quit:
+                    System.Windows.Application.Current.Shutdown();
+                    break;
+            }
         }
     }
 

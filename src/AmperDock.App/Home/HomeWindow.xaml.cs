@@ -269,7 +269,7 @@ public partial class HomeWindow : Window
         }
     }
 
-    private static string KindOf(DockItem item) => item.Type switch
+    private static string KindOf(DockItem item) => item.Target == DockHost.HomeTarget ? "Opens this window" : item.Type switch
     {
         ItemTypes.Folder => "Folder",
         ItemTypes.Document => "File",
@@ -283,7 +283,8 @@ public partial class HomeWindow : Window
     {
         try
         {
-            if (ShellIcons.ForItem(item.IconPath, item.Target, 32) is not { } px) return null;
+            var px = item.Target == DockHost.HomeTarget && item.IconPath is null ? DockHost.LogoPixels(64) : ShellIcons.ForItem(item.IconPath, item.Target, 32);
+            if (px is null) return null;
             var bmp = BitmapSource.Create(px.Width, px.Height, 96, 96, PixelFormats.Pbgra32, null, px.Bgra, px.Width * 4);
             bmp.Freeze();
             return bmp;

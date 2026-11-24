@@ -947,6 +947,41 @@
       "id": "firefly-ghost",
       "name": "Firefly Ghost",
       "wallpaper": "wallpapers/slideshow/firefly-ghost.png"
+    },
+    {
+      "id": "fence-friends",
+      "name": "Fence Friends",
+      "wallpaper": "wallpapers/slideshow/fence-friends.png"
+    },
+    {
+      "id": "neon-grid",
+      "name": "Neon Grid",
+      "wallpaper": "wallpapers/slideshow/neon-grid.png"
+    },
+    {
+      "id": "block-city",
+      "name": "Block City",
+      "wallpaper": "wallpapers/slideshow/block-city.png"
+    },
+    {
+      "id": "rooftop-cafe",
+      "name": "Rooftop Caf\u00c3\u00a9",
+      "wallpaper": "wallpapers/slideshow/rooftop-cafe.png"
+    },
+    {
+      "id": "neon-alley",
+      "name": "Neon Alley",
+      "wallpaper": "wallpapers/slideshow/neon-alley.png"
+    },
+    {
+      "id": "moon-castle",
+      "name": "Moon Castle",
+      "wallpaper": "wallpapers/slideshow/moon-castle.png"
+    },
+    {
+      "id": "trick-treat",
+      "name": "Trick or Treat",
+      "wallpaper": "wallpapers/slideshow/trick-treat.png"
     }
   ]
 }

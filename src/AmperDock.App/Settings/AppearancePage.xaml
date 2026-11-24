@@ -83,6 +83,7 @@
           <UniformGrid Rows="1" Columns="4" x:Name="BandShapes">
             <RadioButton GroupName="band" Content="Rounded" Tag="rounded" Checked="OnBandShape"/>
             <RadioButton GroupName="band" Content="Leaf" Tag="leaf" Checked="OnBandShape"/>
+            <RadioButton GroupName="band" Content="Cloud" Tag="cloud" Checked="OnBandShape"/>
           </UniformGrid>
 
           <StackPanel x:Name="CornersPanel">

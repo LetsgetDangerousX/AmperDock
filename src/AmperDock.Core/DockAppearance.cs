@@ -18,7 +18,8 @@ public static class DockShapes
 {
     public const string Rounded = "rounded";   // a rounded rectangle (Roundness sets the corners)
     public const string Leaf = "leaf";         // pointed ends, a midrib and veins, a little stem
-    public static readonly string[] All = [Rounded, Leaf];
+    public const string Cloud = "cloud";       // round puffs along the top and at both ends, a flat base
+    public static readonly string[] All = [Rounded, Leaf, Cloud];
 }
 
 /// <summary>Running indicators. Paw and dot are drawn in a colour; the rest are little pictures.</summary>

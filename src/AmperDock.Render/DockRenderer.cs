@@ -51,7 +51,7 @@ public sealed record DockStyle(Argb Background, Argb Outline, Argb Highlight, Ar
 public enum IndicatorKind { Paw, Dot, Sprite }
 
 /// <summary>The band's outline.</summary>
-public enum BandShape { Rounded, Leaf }
+public enum BandShape { Rounded, Leaf, Cloud }
 
 /// <summary>
 /// A decoration picture. (CenterX, CenterY) and the size are in window pixels; Orient is the 2x2 part
@@ -374,10 +374,43 @@ public sealed class DockRenderer : IDisposable
     /// <summary>How far cat ears rise past the band's far edge, as a fraction of the band height.</summary>
     public const float EarHeight = 0.30f;
 
+    /// <summary>How far a cloud's end puffs reach past the band's ends, and its top puffs rise above it (band heights).</summary>
+    public const float CloudEnd = 0.30f, CloudRise = 0.20f;
+
+    /// <summary>
+    /// A cloud: a flat base on the screen side, a big round puff at each end, and a row of puffs of
+    /// varying size along the top. (replica/tools/build_dockthemes.py draws its previews with the same numbers.)
+    /// </summary>
+    private static void CloudPath(LocalPath p, float L, float H)
+    {
+        float e = CloudEnd * H, by = 0.18f * H, xs = 0.12f * H, xe = L - 0.12f * H;
+        p.Begin(0.35f * H, H)
+         .Curve(-0.05f * H, H, -e, 0.95f * H, -e, 0.62f * H)
+         .Curve(-e, 0.30f * H, -0.12f * H, 0.12f * H, xs, by);
+        var n = Math.Max(2, (int)MathF.Round((xe - xs) / (0.95f * H)));
+        var w = (xe - xs) / n;
+        float[] rise = [0.28f, 0.36f, 0.24f, 0.32f];
+        for (var i = 0; i < n; i++)
+        {
+            float xa = xs + i * w, xb = xa + w, h = rise[i % rise.Length] * H;
+            p.Curve(xa - 0.08f * w, by - 1.3f * h, xb + 0.08f * w, by - 1.3f * h, xb, by);
+        }
+        p.Curve(L + 0.12f * H, 0.12f * H, L + e, 0.30f * H, L + e, 0.62f * H)
+         .Curve(L + e, 0.95f * H, L + 0.05f * H, H, L - 0.35f * H, H)
+         .Line(0.35f * H, H)
+         .End();
+    }
+
     private LocalPath BandPath(DockScene s, BandMap map)
     {
         float L = map.L, H = map.H;
         var p = new LocalPath(_d2dFactory!, map);
+        if (s.Shape == BandShape.Cloud)
+        {
+            CloudPath(p, L, H);
+            p.Done();
+            return p;
+        }
         if (s.Shape != BandShape.Leaf)
         {
             // rounded rectangle in local coordinates, so every edge uses the same code

@@ -69,6 +69,7 @@ public partial class App : Application
         var dbPath = e.Args.SkipWhile(a => a != "--db").Skip(1).FirstOrDefault() ?? SettingsStore.DefaultPath();
         _store = new SettingsStore(dbPath);
         SeedOnFirstRun(_store);
+        SeedHomeItem(_store);
 
         if (e.Args.Contains("--gallery")) OpenGallery();
         _looks = new LookService(_store);
@@ -186,6 +187,18 @@ public partial class App : Application
         if (store.GetItems(SettingsStore.MainDockId).Count == 0 && seeds.Count > 0)
             store.InsertItems(SettingsStore.MainDockId, 0, seeds);
         store.SetSetting("first_run_seeded", "true");
+    }
+
+    /// <summary>
+    /// The main dock starts with AmperDock itself (it opens the AmperDock window). Added once, first in
+    /// line, for new and existing docks alike; if you remove it, it stays removed.
+    /// </summary>
+    private static void SeedHomeItem(SettingsStore store)
+    {
+        if (store.GetSetting("home_item_seeded") is not null) return;
+        if (store.GetItems(SettingsStore.MainDockId).All(i => i.Target != DockHost.HomeTarget))
+            store.InsertItems(SettingsStore.MainDockId, 0, [new NewItem(ItemTypes.Command, "AmperDock", DockHost.HomeTarget)]);
+        store.SetSetting("home_item_seeded", "true");
     }
 
     private void OpenGallery()
