@@ -149,10 +149,6 @@ public sealed class DesktopWidgetManager
         _open.OfType<MochiThingWidget>().Where(t => t.IsLoaded && (kind is null || t.Kind == kind)).ToList();
 
     public IEnumerable<MochiWidget> Mochis() => _open.OfType<MochiWidget>().Where(m => m.IsLoaded).ToList();
-
-    /// <summary>Mochi's pals on the desktop (including any out of sight in her house).</summary>
-    public IEnumerable<PalWidget> Pals() => _open.OfType<PalWidget>().ToList();
-
     public void Update(DesktopWidget changed)
     {
         var list = Load();

@@ -682,21 +682,13 @@ public sealed class MochiThingWidget : WidgetWindow
 
     protected override IEnumerable<object> MenuItems()
     {
-        // Mochi herself (the one visiting, else the first one out), then each pal on the desktop; in the house
-        // they're hidden, so her things speak for them
+        // Mochi herself (the one visiting, else the first one out); in her house she's hidden, so her things speak for her
         var mochi = Visitor ?? Manager.Mochis().FirstOrDefault();
-        var pals = Manager.Pals().ToList();
         IEnumerable<object> Ask(string verb, string mode)
         {
             var mi = new MenuItem { Header = $"Let Mochi _{verb}", IsEnabled = mochi is not null, ToolTip = mochi is null ? "Add Mochi from the Widgets tab first" : null };
             mi.Click += (_, _) => mochi?.SetMode(mode);
             yield return mi;
-            foreach (var pal in pals)
-            {
-                var p = new MenuItem { Header = $"Let {pal.PalName} {verb}" };
-                p.Click += (_, _) => pal.SetMode(mode);
-                yield return p;
-            }
         }
         switch (Kind)
         {
@@ -711,31 +703,14 @@ public sealed class MochiThingWidget : WidgetWindow
                 yield return fill;
                 break;
             case House:
-                // Exit lets out everyone inside: Mochi and any pals
                 var mochiIn = Manager.Mochis().Where(m => m.InHouse).ToList();
-                var palsIn = _guests.ToList();
-                var anyone = mochiIn.Count + palsIn.Count > 0;
-                var exit = new MenuItem { Header = "E_xit", IsEnabled = anyone, ToolTip = anyone ? "Let everyone out of the house" : "Nobody's in the house" };
-                exit.Click += (_, _) => { foreach (var m in mochiIn) m.ExitHouse(); foreach (var p in palsIn) p.ExitHouse(); };
+                var exit = new MenuItem { Header = "E_xit", IsEnabled = mochiIn.Count > 0, ToolTip = mochiIn.Count > 0 ? "Let Mochi out of her house" : "Mochi isn't in her house" };
+                exit.Click += (_, _) => { foreach (var m in mochiIn) m.ExitHouse(); };
                 yield return exit;
                 yield return new Separator();
                 foreach (var mi in Ask("go home", MochiWidget.Modes.Home)) yield return mi;
                 break;
         }
-    }
-
-    // ---- pals at this thing
-
-    private readonly HashSet<PalWidget> _guests = [];
-
-    /// <summary>A pal goes into (or comes out of) the house.</summary>
-    public void Guest(PalWidget pal, bool inside) { if (inside) _guests.Add(pal); else _guests.Remove(pal); }
-
-    /// <summary>A pal pawing at it makes it wobble (unless Mochi's scene is showing).</summary>
-    public void Wiggle(double shake)
-    {
-        if (_sceneName is not null) return;
-        _image.RenderTransform = shake == 0 ? null : new TranslateTransform(shake, 0);
     }
 
     protected override void OnDoubleClick() { if (Kind == Bowl) SetLevel(2); }
