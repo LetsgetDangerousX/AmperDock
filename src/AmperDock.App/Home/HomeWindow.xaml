@@ -1,0 +1,324 @@
+<Window x:Class="AmperDock.App.Home.HomeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AmperDock" Width="1100" Height="780" MinWidth="880" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource Font.Sans}" FontSize="{StaticResource Type.Body.Size}"
+        Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}">
+  <!-- The AmperDock window: what double-clicking the shortcut opens. One home for every setting. -->
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="76" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <!-- a vertical tab: icon and name, a soft pill when selected -->
+    <Style x:Key="NavTab" TargetType="RadioButton">
+      <Setter Property="GroupName" Value="nav"/>
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Pill" CornerRadius="12" MinHeight="44" Padding="14,0" Background="Transparent"
+                    BorderThickness="2" BorderBrush="Transparent">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Path x:Name="Glyph" Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Width="20" Height="20" Stretch="Uniform"
+                      Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8" StrokeLineJoin="Round"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,12,0"/>
+                <ContentPresenter VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Brush.SurfaceRaised}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Brush.AccentSoft}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Brush.AccentText}"/>
+                <Setter Property="FontWeight" Value="Black"/>
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource Brush.FocusRing}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- the header's minimise and close buttons -->
+    <Style x:Key="CaptionButton" TargetType="Button">
+      <Setter Property="Width" Value="44"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Foreground" Value="#BBAFD3"/>
+      <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="B" CornerRadius="8" Background="Transparent">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="Background" Value="#2E2440"/>
+                <Setter Property="Foreground" Value="#F4EFFC"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- a soft panel that groups a few settings -->
+    <Style x:Key="Group" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Padding" Value="18,16"/>
+      <Setter Property="Margin" Value="0,16,0,0"/>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <!-- ===== header: Mochi peeks, the name, the version ===== -->
+    <Border DockPanel.Dock="Top" Height="76" Background="#18121F" BorderBrush="#3C3052" BorderThickness="0,0,0,1">
+      <DockPanel Margin="20,0,14,0">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border CornerRadius="999" BorderBrush="#3C3052" BorderThickness="1" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
+            <TextBlock x:Name="VersionChip" FontSize="12" FontWeight="Bold" Foreground="#BBAFD3"/>
+          </Border>
+          <Button Style="{StaticResource CaptionButton}" Click="OnMinimise" AutomationProperties.Name="Minimise" ToolTip="Minimise">
+            <Path Data="M2,7 H12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="14" Height="14"/>
+          </Button>
+          <Button Style="{StaticResource CaptionButton}" Click="OnClose" AutomationProperties.Name="Close" ToolTip="Close (the dock keeps running)">
+            <Path Data="M3,3 L11,11 M11,3 L3,11" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="14" Height="14"/>
+          </Button>
+        </StackPanel>
+        <Image Source="/Assets/AmperDock.png" Width="48" Height="48" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+        <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
+          <TextBlock FontSize="28" FontWeight="Black" LineHeight="30" Foreground="#F4EFFC">
+            <Run Text="Amper"/><Run Text="Dock" Foreground="#B497FF"/>
+          </TextBlock>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#BBAFD3" Text="by " VerticalAlignment="Center"/>
+            <Image Source="{StaticResource Img.AmperLabs}" Height="12" Margin="1,0,3,0" VerticalAlignment="Center"/>
+            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#BBAFD3" Text="AmperLabs LLC" VerticalAlignment="Center"/>
+          </StackPanel>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ===== vertical tabs ===== -->
+    <Border DockPanel.Dock="Left" Width="232" Background="{DynamicResource Brush.Surface}"
+            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0" Padding="12,16">
+      <StackPanel x:Name="Nav" AutomationProperties.Name="AmperDock settings">
+        <RadioButton x:Name="TabDock" Style="{StaticResource NavTab}" Content="Dock" Checked="OnTab"
+                     Tag="M5,15 H19 A3,3 0 0 1 19,21 H5 A3,3 0 0 1 5,15 Z M6.5,8 H8.5 A1.5,1.5 0 0 1 10,9.5 V11.5 A1.5,1.5 0 0 1 8.5,13 H6.5 A1.5,1.5 0 0 1 5,11.5 V9.5 A1.5,1.5 0 0 1 6.5,8 Z M15.5,8 H17.5 A1.5,1.5 0 0 1 19,9.5 V11.5 A1.5,1.5 0 0 1 17.5,13 H15.5 A1.5,1.5 0 0 1 14,11.5 V9.5 A1.5,1.5 0 0 1 15.5,8 Z"/>
+        <RadioButton x:Name="TabPosition" Style="{StaticResource NavTab}" Content="Position &amp; hiding" Checked="OnTab"
+                     Tag="M5.5,4 H18.5 A2.5,2.5 0 0 1 21,6.5 V15.5 A2.5,2.5 0 0 1 18.5,18 H5.5 A2.5,2.5 0 0 1 3,15.5 V6.5 A2.5,2.5 0 0 1 5.5,4 Z M7,15 H17 M12,21 V18"/>
+        <RadioButton x:Name="TabAppearance" Style="{StaticResource NavTab}" Content="Appearance" Checked="OnTab"
+                     Tag="M12,3 A9,9 0 1 0 12,21 C13.4,21 14,20 14,19 C14,17.5 12.5,17.4 12.5,16 C12.5,15 13.3,14.5 14.5,14.5 H17 A4,4 0 0 0 21,10.5 C21,6.3 17,3 12,3 Z M7.5,9.8 A1.2,1.2 0 1 0 7.5,12.2 A1.2,1.2 0 1 0 7.5,9.8 Z M10.5,5.8 A1.2,1.2 0 1 0 10.5,8.2 A1.2,1.2 0 1 0 10.5,5.8 Z M15.5,6.3 A1.2,1.2 0 1 0 15.5,8.7 A1.2,1.2 0 1 0 15.5,6.3 Z"/>
+        <RadioButton x:Name="TabLooks" Style="{StaticResource NavTab}" Content="Look packs" Checked="OnTab"
+                     Tag="M5,3 L17,10 L11.5,11.5 L9,17 Z M15,15 L16,17 L18,18 L16,19 L15,21 L14,19 L12,18 L14,17 Z"/>
+        <RadioButton x:Name="TabWidgets" Style="{StaticResource NavTab}" Content="Widgets" Checked="OnTab"
+                     Tag="M5,3 H9 A2,2 0 0 1 11,5 V9 A2,2 0 0 1 9,11 H5 A2,2 0 0 1 3,9 V5 A2,2 0 0 1 5,3 Z M15,3 H19 A2,2 0 0 1 21,5 V9 A2,2 0 0 1 19,11 H15 A2,2 0 0 1 13,9 V5 A2,2 0 0 1 15,3 Z M5,13 H9 A2,2 0 0 1 11,15 V19 A2,2 0 0 1 9,21 H5 A2,2 0 0 1 3,19 V15 A2,2 0 0 1 5,13 Z M15,13 H19 A2,2 0 0 1 21,15 V19 A2,2 0 0 1 19,21 H15 A2,2 0 0 1 13,19 V15 A2,2 0 0 1 15,13 Z"/>
+        <RadioButton x:Name="TabHoliday" Style="{StaticResource NavTab}" Content="Holiday packs" Checked="OnTab"
+                     Tag="M5,9 H19 A2,2 0 0 1 21,11 V19 A2,2 0 0 1 19,21 H5 A2,2 0 0 1 3,19 V11 A2,2 0 0 1 5,9 Z M2.5,9 H21.5 M12,9 V21 M12,9 C10,5 6,5 6,7.5 C6,10 10,9 12,9 C14,9 18,9.5 18,7.5 C18,5 14,5 12,9 Z"/>
+        <RadioButton x:Name="TabAbout" Style="{StaticResource NavTab}" Content="About" Checked="OnTab"
+                     Tag="M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M12,11 V17 M12,7.2 V7.8"/>
+      </StackPanel>
+    </Border>
+
+    <!-- ===== the selected tab ===== -->
+    <Grid Margin="30,24,24,20">
+
+      <!-- Dock -->
+      <ScrollViewer x:Name="PageDock" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="Collapsed">
+        <StackPanel Margin="0,0,8,8">
+          <TextBlock Style="{StaticResource Text.Display}" Text="Dock"/>
+          <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0" Text="What's on your dock, and what it shows."/>
+          <WrapPanel Margin="0,18,0,0">
+            <TextBlock Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Dock"/>
+            <ComboBox x:Name="DockPicker" MinWidth="200" VerticalAlignment="Center" SelectionChanged="OnDockPicked" AutomationProperties.Name="Which dock"/>
+            <Button Style="{StaticResource Btn.Secondary}" Margin="10,0,0,0" Content="New dock" Click="OnNewDock"/>
+            <Button x:Name="RemoveDockButton" Style="{StaticResource Btn.Ghost}" Margin="4,0,0,0" Content="Remove this dock…" Click="OnRemoveDock"/>
+          </WrapPanel>
+          <Border Margin="0,16,0,0" CornerRadius="14" BorderThickness="1" BorderBrush="{DynamicResource Brush.Border}"
+                  Background="{DynamicResource Brush.SurfaceRaised}" ClipToBounds="True">
+            <StackPanel x:Name="ItemList"/>
+          </Border>
+          <WrapPanel Margin="0,14,0,0">
+            <Button Style="{StaticResource Btn.Primary}" Content="Add an app…" Click="OnAddApp" Margin="0,0,10,8"/>
+            <Button Style="{StaticResource Btn.Secondary}" Content="Add a file…" Click="OnAddFile" Margin="0,0,10,8"/>
+            <Button Style="{StaticResource Btn.Secondary}" Content="Add a folder…" Click="OnAddFolder" Margin="0,0,10,8"/>
+          </WrapPanel>
+          <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                     Text="You can also drag apps, files and folders straight onto the dock, and drag icons along it to reorder them."/>
+          <Border Style="{StaticResource Group}">
+            <StackPanel>
+              <CheckBox x:Name="OpenAppsBox" Content="Show open apps too, after the pinned ones" Click="OnBehaviourBox"/>
+              <CheckBox x:Name="PreviewsBox" Margin="0,10,0,0" Content="Show window previews when I rest on an open app" Click="OnBehaviourBox"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Position & hiding -->
+      <ScrollViewer x:Name="PagePosition" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="Collapsed">
+        <StackPanel Margin="0,0,8,8">
+          <DockPanel>
+            <ComboBox x:Name="PositionDockPicker" DockPanel.Dock="Right" MinWidth="180" VerticalAlignment="Center"
+                      SelectionChanged="OnDockPicked" AutomationProperties.Name="Which dock"/>
+            <TextBlock Style="{StaticResource Text.Display}" Text="Position &amp; hiding"/>
+          </DockPanel>
+          <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0" Text="Where the dock sits, and when it gets out of the way."/>
+          <Border Style="{StaticResource Group}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,0,0,10" Text="Screen edge"/>
+              <WrapPanel x:Name="EdgeChoices">
+                <RadioButton GroupName="edge" Content="Bottom" Tag="Bottom" Margin="0,0,18,6" Click="OnEdge"/>
+                <RadioButton GroupName="edge" Content="Top" Tag="Top" Margin="0,0,18,6" Click="OnEdge"/>
+                <RadioButton GroupName="edge" Content="Left" Tag="Left" Margin="0,0,18,6" Click="OnEdge"/>
+                <RadioButton GroupName="edge" Content="Right" Tag="Right" Margin="0,0,18,6" Click="OnEdge"/>
+                <RadioButton GroupName="edge" Content="Floating" Tag="Float" Margin="0,0,18,6" Click="OnEdge"/>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource Text.BodyStrong}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Screen"/>
+                <ComboBox x:Name="ScreenPicker" MinWidth="200" SelectionChanged="OnScreenPicked" AutomationProperties.Name="Which screen"/>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Text.Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                         Text="Tip: drag an empty part of the dock (or Alt+drag anywhere on it) to move it by hand."/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource Group}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,0,0,10" Text="Auto-hide"/>
+              <RadioButton x:Name="HideOff" GroupName="hide" Content="Off: the dock always shows" Click="OnHide" Margin="0,0,0,6"/>
+              <RadioButton x:Name="HideOn" GroupName="hide" Content="Slide out of sight when the pointer leaves the dock" Click="OnHide"/>
+              <StackPanel x:Name="RevealRow" Orientation="Horizontal" Margin="26,10,0,0">
+                <TextBlock Style="{StaticResource Text.Body}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Bring it back after resting at the edge for"/>
+                <ComboBox x:Name="RevealPicker" MinWidth="130" SelectionChanged="OnReveal" AutomationProperties.Name="How long to rest at the edge"/>
+              </StackPanel>
+              <TextBlock x:Name="FloatHideNote" Style="{StaticResource Text.Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
+                         Text="A floating dock can't hide. Put it on a screen edge first."/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource Group}">
+            <StackPanel>
+              <CheckBox x:Name="ReserveBox" Content="Keep windows clear of the dock" Click="OnBehaviourBox"/>
+              <TextBlock Style="{StaticResource Text.Caption}" Margin="26,4,0,0" TextWrapping="Wrap"
+                         Text="Maximised windows stop at the dock, like they do at the taskbar. Only while auto-hide is off and the dock is on an edge."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Appearance (one page per dock, made when first shown) -->
+      <ContentControl x:Name="PageAppearance" Focusable="False" Visibility="Collapsed"/>
+
+      <!-- Look packs -->
+      <ContentControl x:Name="PageLooks" Focusable="False" Visibility="Collapsed"/>
+
+      <!-- Widgets -->
+      <ScrollViewer x:Name="PageWidgets" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="Collapsed">
+        <StackPanel Margin="0,0,8,8">
+          <TextBlock Style="{StaticResource Text.Display}" Text="Widgets"/>
+          <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0" Text="Little helpers that live on your desktop. Right-click one to change it."/>
+          <WrapPanel x:Name="WidgetKinds" Margin="0,18,0,0"/>
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,18,0,8" Text="On your desktop"/>
+          <Border CornerRadius="14" BorderThickness="1" BorderBrush="{DynamicResource Brush.Border}"
+                  Background="{DynamicResource Brush.SurfaceRaised}" ClipToBounds="True">
+            <StackPanel x:Name="WidgetList"/>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Holiday packs -->
+      <ScrollViewer x:Name="PageHoliday" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="Collapsed">
+        <StackPanel Margin="0,0,8,8">
+          <TextBlock Style="{StaticResource Text.Display}" Text="Holiday packs"/>
+          <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                     Text="Seasonal looks for your dock and desktop: a dock theme, cursors, a trail and folder icons for each holiday."/>
+          <Border Margin="0,18,0,0" CornerRadius="18" Padding="26,24">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#1F4A3C" Offset="0"/>
+                <GradientStop Color="#183B32" Offset="0.55"/>
+                <GradientStop Color="#2A1F3D" Offset="1"/>
+              </LinearGradientBrush>
+            </Border.Background>
+            <DockPanel>
+              <Image DockPanel.Dock="Right" Source="/Assets/Mochi/play-sit.png" Width="150" Margin="16,0,0,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+              <StackPanel>
+                <TextBlock FontSize="13" FontWeight="Black" Foreground="#F5C46A" Text="MOCHI'S CHRISTMAS"/>
+                <TextBlock FontSize="44" FontWeight="Black" Foreground="#FFF7EA" Margin="0,2,0,6" Text="Coming soon">
+                  <TextBlock.Effect><DropShadowEffect Color="#B8283F" ShadowDepth="2" Direction="270" BlurRadius="0" Opacity="1"/></TextBlock.Effect>
+                </TextBlock>
+                <TextBlock FontSize="14" Foreground="#E9F3EE" TextWrapping="Wrap"
+                           Text="Santa Mochi, gift-box Mochi, an ornament, a gingerbread cookie, a candy cane and a snow cat, with a dock theme, cursors, a snowy trail and folder icons to match."/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <TextBlock Style="{StaticResource Text.Subtitle}" Margin="0,22,0,8" Text="Later on"/>
+          <WrapPanel>
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,10,10" MinWidth="170"><TextBlock Style="{StaticResource Text.BodyStrong}" Text="Lunar New Year"/></Border>
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,10,10" MinWidth="170"><TextBlock Style="{StaticResource Text.BodyStrong}" Text="Valentine's Day"/></Border>
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,10,10" MinWidth="170"><TextBlock Style="{StaticResource Text.BodyStrong}" Text="Spring"/></Border>
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,10,10" MinWidth="170"><TextBlock Style="{StaticResource Text.BodyStrong}" Text="Halloween"/></Border>
+          </WrapPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- About -->
+      <ScrollViewer x:Name="PageAbout" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="Collapsed">
+        <StackPanel Margin="0,0,8,8">
+          <TextBlock Style="{StaticResource Text.Display}" Text="About"/>
+          <TextBlock x:Name="AboutVersion" Style="{StaticResource Text.Muted}" Margin="0,4,0,0"/>
+          <Border Style="{StaticResource Group}">
+            <DockPanel>
+              <Button x:Name="UpdateButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Secondary}" VerticalAlignment="Center"
+                      Content="Check for updates" Click="OnCheckUpdates"/>
+              <StackPanel Margin="0,0,12,0">
+                <TextBlock x:Name="UpdateTitle" Style="{StaticResource Text.BodyStrong}" Text="Updates"/>
+                <TextBlock x:Name="UpdateText" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                           Text="AmperDock checks for updates by itself and installs them the next time it starts."/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Style="{StaticResource Group}">
+            <StackPanel>
+              <CheckBox x:Name="AutostartBox" Content="Start AmperDock when I sign in to Windows" Click="OnAutostart"/>
+              <TextBlock Style="{StaticResource Text.Caption}" Margin="26,4,0,0" TextWrapping="Wrap"
+                         Text="It starts quietly: just the dock and your widgets. Double-click the AmperDock shortcut any time to open this window."/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18">
+            <DockPanel>
+              <!-- AmperLabs' gold ampersand, as on ampersite.com -->
+              <Border DockPanel.Dock="Left" Width="56" Height="56" CornerRadius="16" Margin="0,0,16,0" VerticalAlignment="Top"
+                      Background="#18121F" Padding="9">
+                <Image Source="{StaticResource Img.AmperLabs}" Stretch="Uniform" AutomationProperties.Name="AmperLabs logo"/>
+              </Border>
+              <StackPanel>
+                <TextBlock Style="{StaticResource Text.Subtitle}" Text="Made by AmperLabs LLC"/>
+                <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,4" Text="All art is original. Nunito font: SIL Open Font License."/>
+                <TextBlock>
+                  <Hyperlink NavigateUri="https://ampersite.com" RequestNavigate="OnLink"
+                             Foreground="{DynamicResource Brush.AccentText}" FontWeight="Bold">ampersite.com</Hyperlink>
+                  <Run Text="  ·  "/>
+                  <Hyperlink NavigateUri="https://github.com/LetsgetDangerousX/AmperDock" RequestNavigate="OnLink"
+                             Foreground="{DynamicResource Brush.AccentText}" FontWeight="Bold">Source code on GitHub</Hyperlink>
+                </TextBlock>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Button Style="{StaticResource Btn.Secondary}" HorizontalAlignment="Left" Margin="0,18,0,0" Click="OnQuit"
+                  Foreground="{DynamicResource Brush.Danger}" BorderBrush="{DynamicResource Brush.Danger}" Content="Quit AmperDock"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</Window>

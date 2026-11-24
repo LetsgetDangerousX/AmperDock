@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using AmperDock.Core;
@@ -92,8 +93,19 @@ public sealed class DesktopWidgetManager
 
     public DesktopWidgetManager(SettingsStore store) => _store = store;
 
+    /// <summary>A widget was added, removed or changed (for the AmperDock window's list).</summary>
+    public event Action? Changed;
+
+    /// <summary>The widgets on the desktop.</summary>
+    public IReadOnlyList<DesktopWidget> List() => Load();
+
     private List<DesktopWidget> Load() => DesktopWidget.ListFromJson(_store.GetSetting(DesktopWidget.SettingsKey));
-    private void Save(List<DesktopWidget> list) => _store.SetSetting(DesktopWidget.SettingsKey, DesktopWidget.ListToJson(list));
+
+    private void Save(List<DesktopWidget> list)
+    {
+        _store.SetSetting(DesktopWidget.SettingsKey, DesktopWidget.ListToJson(list));
+        Changed?.Invoke();
+    }
 
     public void Start()
     {
@@ -203,7 +215,7 @@ public abstract class WidgetWindow : Window
             if (e.ClickCount == 2) { OnDoubleClick(); return; }
             try { DragMove(); } catch (InvalidOperationException) { }
         };
-        LocationChanged += (_, _) => { _saveSoon!.Stop(); _saveSoon.Start(); };
+        LocationChanged += (_, _) => { if (!SavesMoves) return; _saveSoon!.Stop(); _saveSoon.Start(); };
         _saveSoon = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) =>
         {
             _saveSoon!.Stop();
@@ -356,6 +368,12 @@ public abstract class WidgetWindow : Window
 
     protected virtual string ColourMenuName => "_Colour";
 
+    /// <summary>False for widgets drawn from pictures (Mochi), which have no colour to choose.</summary>
+    protected virtual bool HasColourMenu => true;
+
+    /// <summary>False while a widget moves itself (Mochi walking): its position is saved when it stops instead.</summary>
+    protected bool SavesMoves { get; set; } = true;
+
     /// <summary>A submenu of colour swatches plus "Any colour…", calling <paramref name="pick"/> with the value chosen.</summary>
     protected MenuItem ColourMenu(string header, IEnumerable<(string Value, string Name, Color Top, Color Bottom)> choices, string? current, Action<string?> pick, bool automatic = false)
     {
@@ -388,7 +406,8 @@ public abstract class WidgetWindow : Window
         var menu = new ContextMenu();
         foreach (var item in MenuItems()) menu.Items.Add(item);
         if (menu.Items.Count > 0) menu.Items.Add(new Separator());
-        menu.Items.Add(ColourMenu(ColourMenuName, ColourChoices(), Data.Colour, v => { if (v is not null) { Save(Data with { Colour = v }); ApplyColour(); } }));
+        if (HasColourMenu)
+            menu.Items.Add(ColourMenu(ColourMenuName, ColourChoices(), Data.Colour, v => { if (v is not null) { Save(Data with { Colour = v }); ApplyColour(); } }));
         var remove = new MenuItem { Header = "_Remove widget" };
         remove.Click += (_, _) => Manager.Remove(Data.Id);
         menu.Items.Add(remove);
@@ -740,156 +759,333 @@ public sealed class CountdownWidget : WidgetWindow
 }
 
 /// <summary>
-/// Mochi, a little white cat who sits on your desktop. Her eyes follow your pointer, she blinks now and
-/// then, naps at night, and purrs (with a heart) when you click her. Right-click to change her fur colour.
+/// Mochi, a little white cat who lives on your desktop. She has a mind of her own: she wanders along,
+/// sits, plays with her ball of yarn and curls up for naps (more of them at night), waking with a big
+/// stretch. Click her and she purrs (or wakes up); double-click and she plays; drag her anywhere. Her
+/// right-click menu asks her to walk, play or nap, or to stay put. Drawn from replica/design/assets/mochi-sheet.jpg.
 /// </summary>
 public sealed class MochiWidget : WidgetWindow
 {
-    private const double K = 2.1;   // design units (a 64 x 80 box) to DIPs
-    private static readonly Color InkColour = Color.FromRgb(0x2A, 0x1F, 0x3D);
+    private const double Px = 0.62;                       // pose pixels to DIPs
+    private const double FrameW = 338 * Px, FrameH = 203 * Px;
+    private const double BubbleRoom = 30;
+    private const double WalkSpeed = 46;                  // DIPs a second
 
-    private readonly Canvas _art = new() { Width = 64 * K, Height = 80 * K };
-    private readonly List<Shape> _fur = [];
-    private readonly Path _tail;
-    private readonly Ellipse _eyeL = new(), _eyeR = new();
-    private readonly Path _closedEyes, _happyEyes, _heart;
-    private readonly TextBlock _zzz, _bubble;
-    private readonly DispatcherTimer _tick;
-    private long _blinkUntil, _happyUntil;
+    private enum Act { Sit, Walk, Sleep, Wake, Play, Happy }
+
+    private static readonly Dictionary<string, BitmapSource> Poses = new();   // by pose and fur colour
 
     private static readonly (string Value, string Name)[] Furs =
-        [("#FFFFFF", "White"), ("#FFF1DE", "Cream"), ("#D9D4E3", "Grey"), ("#3A3346", "Black"), ("#F2A65A", "Ginger"), ("#D9C6FF", "Lilac")];
+        [("#FFFFFF", "White"), ("#FFF1DE", "Cream"), ("#D9D4E3", "Grey"), ("#4A4356", "Black"), ("#F2A65A", "Ginger"),
+         ("#C79A6B", "Tabby brown"), ("#F7C6D9", "Pink"), ("#D9C6FF", "Lilac"), ("#BFE3FF", "Sky blue")];
 
-    public MochiWidget(DesktopWidget data, DesktopWidgetManager manager) : base(data, manager, 64 * K, 80 * K)
+    private string _fur = "#FFFFFF";
+
+    private readonly Image _cat = new() { Width = FrameW, Height = FrameH, Stretch = Stretch.Uniform, RenderTransformOrigin = new Point(0.5, 0.5) };
+    private readonly ScaleTransform _flip = new(1, 1);
+    private readonly TextBlock _bubble;
+    private readonly DispatcherTimer _tick;
+    private Act _act = Act.Sit;
+    private long _actStarted, _actUntil, _bubbleUntil, _lastTick;
+    private int _dir = 1;                                 // 1 = walking right (the way she's drawn), -1 = left
+    private Point _pressAt;
+    private bool _pressed;
+
+    /// <summary>A pose in a fur colour (made once, then kept).</summary>
+    private static ImageSource Pose(string name, string fur)
+    {
+        var key = $"{name}|{fur}";
+        if (Poses.TryGetValue(key, out var done)) return done;
+        var img = new BitmapImage();
+        img.BeginInit();
+        img.UriSource = new Uri($"pack://application:,,,/Assets/Mochi/{name}.png");
+        img.CacheOption = BitmapCacheOption.OnLoad;
+        img.EndInit();
+        img.Freeze();
+        var colour = Controls.ColorPicker.Parse(fur) ?? Colors.White;
+        BitmapSource result = colour == Colors.White ? img : Recolour(img, colour);
+        result.Freeze();
+        return Poses[key] = result;
+    }
+
+    /// <summary>
+    /// Dye her fur: the white, colourless parts take the fur colour with their shading kept (multiplied),
+    /// while colourful parts (pink ears, blush, the yarn) and her dark outline stay as drawn. On a dark coat
+    /// the outline and eyes go light instead, so her face still shows.
+    /// </summary>
+    private static BitmapSource Recolour(BitmapSource src, Color fur)
+    {
+        var bgra = new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0);
+        int w = bgra.PixelWidth, h = bgra.PixelHeight, stride = w * 4;
+        var px = new byte[stride * h];
+        bgra.CopyPixels(px, stride, 0);
+        var darkCoat = WidgetColours.Luma(fur) < 0.35;
+        for (var i = 0; i < px.Length; i += 4)
+        {
+            if (px[i + 3] == 0) continue;
+            double b = px[i], g = px[i + 1], r = px[i + 2];
+            var max = Math.Max(r, Math.Max(g, b));
+            var min = Math.Min(r, Math.Min(g, b));
+            var sat = max <= 0 ? 0 : (max - min) / max;
+            var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            // how much of this pixel is fur: light and nearly colourless (soft pink shading still counts a little)
+            var furness = Math.Clamp((0.42 - sat) / 0.3, 0, 1) * Math.Clamp((lum - 0.45) / 0.25, 0, 1);
+            double nr = r, ng = g, nb = b;
+            if (furness > 0)
+            {
+                nr = r + (r * fur.R / 255.0 - r) * furness;
+                ng = g + (g * fur.G / 255.0 - g) * furness;
+                nb = b + (b * fur.B / 255.0 - b) * furness;
+            }
+            if (darkCoat && lum < 0.45 && sat < 0.45)
+            {
+                // the outline and eyes: light cream on a dark coat
+                var t = Math.Clamp((0.45 - lum) / 0.3, 0, 1);
+                nr += (0xFF - nr) * t * 0.85;
+                ng += (0xF1 - ng) * t * 0.85;
+                nb += (0xE0 - nb) * t * 0.85;
+            }
+            px[i] = (byte)Math.Round(Math.Clamp(nb, 0, 255));
+            px[i + 1] = (byte)Math.Round(Math.Clamp(ng, 0, 255));
+            px[i + 2] = (byte)Math.Round(Math.Clamp(nr, 0, 255));
+        }
+        return BitmapSource.Create(w, h, src.DpiX, src.DpiY, PixelFormats.Bgra32, null, px, stride);
+    }
+
+    public MochiWidget(DesktopWidget data, DesktopWidgetManager manager) : base(data, manager, FrameW, FrameH + BubbleRoom)
     {
         Card.Background = Brushes.Transparent;
         Card.BorderThickness = new Thickness(0);
-        Card.Effect = new DropShadowEffect { BlurRadius = 12, ShadowDepth = 3, Direction = 270, Opacity = 0.18, Color = InkColour };
-        var ink = new SolidColorBrush(InkColour);
-        var pink = new SolidColorBrush(Color.FromRgb(0xF4, 0xA6, 0xC8));
-        var blush = new SolidColorBrush(Color.FromArgb(0xCC, 0xF4, 0xA6, 0xC8));
-
-        Path Part(string geometry, bool fur = true, Brush? fill = null, double stroke = 2.4)
+        Card.Effect = null;
+        RenderOptions.SetBitmapScalingMode(_cat, BitmapScalingMode.HighQuality);
+        _cat.RenderTransform = _flip;
+        _bubble = new TextBlock
         {
-            var path = new Path { Data = Geometry.Parse(geometry), Stroke = ink, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Fill = fill };
-            path.RenderTransform = new ScaleTransform(K, K);
-            path.StrokeThickness = stroke;
-            if (fur) _fur.Add(path);
-            _art.Children.Add(path);
-            return path;
-        }
+            Text = "purr~", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(0x2A, 0x1F, 0x3D)),
+            Padding = new Thickness(9, 3, 9, 3), Opacity = 0, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
+            Background = new SolidColorBrush(Color.FromArgb(0xF0, 0xFF, 0xFF, 0xFF)), IsHitTestVisible = false,
+        };
+        var body = new Grid { Width = FrameW, Height = FrameH + BubbleRoom };
+        _cat.VerticalAlignment = VerticalAlignment.Bottom;
+        body.Children.Add(_cat);
+        body.Children.Add(new Border { Child = _bubble, CornerRadius = new CornerRadius(10), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, ClipToBounds = false });
+        Card.Child = body;
 
-        // tail (an ink line, then fur over it), body, paws, head and ears: drawn back to front
-        var tailInk = Part("M46,74 C60,74 63,58 55,50", fur: false, stroke: 7.5);
-        tailInk.Fill = null;
-        _tail = Part("M46,74 C60,74 63,58 55,50", fur: false, stroke: 4.2);   // a fur-coloured line over the ink one
-        _tail.Fill = null;
-        Part("M18,78 C13,60 19,47 32,47 C45,47 51,60 46,78 Z");
-        Part("M21,78 a5,3.4 0 1 1 10,0 Z M33,78 a5,3.4 0 1 1 10,0 Z", stroke: 1.8);
-        Part("M12,19 L9,1.5 C8.7,-0.1 10.4,-1.2 11.7,-0.3 L25,8.5 M52,19 L55,1.5 C55.3,-0.1 53.6,-1.2 52.3,-0.3 L39,8.5");
-        Part("M13.4,5.2 L15,14 L20.6,9.5 Z M50.6,5.2 L49,14 L43.4,9.5 Z", fur: false, fill: pink, stroke: 0);
-        Part("M8,30 a24,20 0 1 0 48,0 a24,20 0 1 0 -48,0 Z");
-        // face
-        foreach (var e in new[] { _eyeL, _eyeR })
+        // an older Mochi was tall and narrow: don't squash the new one into that size
+        if (Data.Width > 0 && Data.Height > Data.Width * 0.9) { Width = FrameW + 28; Height = FrameH + BubbleRoom + 28; Save(Data with { Width = 0, Height = 0 }); }
+
+        Card.PreviewMouseLeftButtonDown += (_, e) => { _pressed = true; _pressAt = PointToScreen(e.GetPosition(this)); StopWalking(); };
+        Card.MouseLeftButtonUp += (_, e) =>
         {
-            e.Width = e.Height = 4.2 * K;
-            e.Fill = ink;
-            _art.Children.Add(e);
-        }
-        _closedEyes = Part("M17.5,29.5 q3.5,4 7,0 M39.5,29.5 q3.5,4 7,0", fur: false, stroke: 2.2);
-        _closedEyes.Fill = null;
-        _happyEyes = Part("M17.5,31.5 q3.5,-4.5 7,0 M39.5,31.5 q3.5,-4.5 7,0", fur: false, stroke: 2.2);
-        _happyEyes.Fill = null;
-        Part("M13,35.5 a4,2.4 0 1 0 8,0 a4,2.4 0 1 0 -8,0 Z M43,35.5 a4,2.4 0 1 0 8,0 a4,2.4 0 1 0 -8,0 Z", fur: false, fill: blush, stroke: 0);
-        var mouth = Part("M28.5,35.5 q1.75,2.2 3.5,0 q1.75,2.2 3.5,0", fur: false, stroke: 2);
-        mouth.Fill = null;
-        Part("M30.6,33.2 L33.4,33.2 L32,34.6 Z", fur: false, fill: new SolidColorBrush(Color.FromRgb(0x74, 0x44, 0xD6)), stroke: 0);
-        _heart = Part("M54,14 C50,10 46,13.5 48,17 L54,22 L60,17 C62,13.5 58,10 54,14 Z", fur: false, fill: pink, stroke: 1.4);
-        _heart.Opacity = 0;
-        _zzz = new TextBlock { Text = "z z", FontSize = 15, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0x7B, 0xE6)), Visibility = Visibility.Collapsed };
-        Canvas.SetLeft(_zzz, 50 * K); Canvas.SetTop(_zzz, -2 * K);
-        _art.Children.Add(_zzz);
-        _bubble = new TextBlock { Text = "purr~", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = ink, Opacity = 0, Padding = new Thickness(8, 3, 8, 3),
-            Background = new SolidColorBrush(Color.FromArgb(0xEE, 0xFF, 0xFF, 0xFF)) };
-        Canvas.SetLeft(_bubble, 2 * K); Canvas.SetTop(_bubble, -4 * K);
-        _art.Children.Add(_bubble);
-
-        _art.Margin = new Thickness(0, 6, 0, 0);
-        Card.Child = _art;
-        Card.MouseLeftButtonUp += (_, _) => Purr();
-        _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(90), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
+            if (!_pressed) return;
+            _pressed = false;
+            var now = PointToScreen(e.GetPosition(this));
+            if (Math.Abs(now.X - _pressAt.X) + Math.Abs(now.Y - _pressAt.Y) < 6) Clicked();
+            else Start(Act.Sit);   // put down somewhere new: she sits there for a bit
+        };
+        _lastTick = Environment.TickCount64;
+        _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(40), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
         _tick.Start();
-        Closed += (_, _) => _tick.Stop();
-        Tick();
+        Closed += (_, _) => { _tick.Stop(); StopWalking(); };
+        // diagnostics: AMPERDOCK_MOCHI=walk|play|sleep|sit starts her doing that (for checking her animations)
+        Start(Enum.TryParse<Act>(Environment.GetEnvironmentVariable("AMPERDOCK_MOCHI"), true, out var first) ? first : Sleepy ? Act.Sleep : Act.Sit);
     }
 
     protected override string ColourMenuName => "_Fur colour";
 
     protected override IEnumerable<(string Value, string Name, Color Top, Color Bottom)> ColourChoices() =>
-        Furs.Select(f => { var c = (Color)ColorConverter.ConvertFromString(f.Value); return (f.Value, f.Name, c, c); });
+        new[] { (WallpaperColour, "Match my wallpaper", Color.FromRgb(0xB9, 0xA4, 0xFF), Color.FromRgb(0x7E, 0xD9, 0xAE)) }
+            .Concat(Furs.Select(f => { var c = (Color)ColorConverter.ConvertFromString(f.Value); return (f.Value, f.Name, c, c); }));
+
+    /// <summary>Her coat when it follows the wallpaper: a soft pastel of the wallpaper's main colour.</summary>
+    private string WallpaperFur()
+    {
+        var c = Colours;   // the wallpaper's palette where she sits
+        static double Sat(Color k) { var max = Math.Max(k.R, Math.Max(k.G, k.B)); return max == 0 ? 0 : (max - Math.Min(k.R, Math.Min(k.G, k.B))) / (double)max; }
+        var main = new[] { c.Top, c.Bottom, c.Accent }.OrderByDescending(Sat).First();   // the wallpaper's most colourful shade
+        var pastel = WidgetColours.Mix(main, Colors.White, 0.35);
+        return $"#{pastel.R:X2}{pastel.G:X2}{pastel.B:X2}";
+    }
 
     protected override void ApplyColour()
     {
-        base.ApplyColour();
+        base.ApplyColour();                 // builds the right-click menu
         Card.Background = Brushes.Transparent;
         Card.BorderThickness = new Thickness(0);
-        var fur = new SolidColorBrush(Controls.ColorPicker.Parse(Data.Colour) ?? Colors.White);
-        foreach (var part in _fur) part.Fill = fur;
-        _tail.Stroke = fur;
-        // a dark coat gets light eyes so they still show
-        var dark = WidgetColours.Luma(fur.Color) < 0.35;
-        var eye = new SolidColorBrush(dark ? Color.FromRgb(0xFF, 0xF4, 0xE6) : InkColour);
-        _eyeL.Fill = _eyeR.Fill = eye;
-        _closedEyes.Stroke = _happyEyes.Stroke = eye;
+        // her fur: a colour picked from the menu, or the wallpaper's (repainted each time the wallpaper changes)
+        var fur = Data.Colour == WallpaperColour ? WallpaperFur()
+            : Controls.ColorPicker.Parse(Data.Colour) is not null ? Data.Colour : "#FFFFFF";
+        if (!string.Equals(fur, _fur, StringComparison.OrdinalIgnoreCase))
+        {
+            // forget the old coat's pictures (a slideshow would otherwise pile up a set per wallpaper)
+            var old = _fur;
+            if (!Furs.Any(f => string.Equals(f.Value, old, StringComparison.OrdinalIgnoreCase)))
+                foreach (var key in Poses.Keys.Where(k => k.EndsWith("|" + old, StringComparison.OrdinalIgnoreCase)).ToList()) Poses.Remove(key);
+            _fur = fur;
+            if (_shown is { } pose) { _shown = null; Show(pose); }
+        }
     }
 
-    [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
-    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X, Y; }
+    protected override IEnumerable<object> MenuItems()
+    {
+        MenuItem Item(string header, Action click, bool enabled = true)
+        {
+            var mi = new MenuItem { Header = header, IsEnabled = enabled };
+            mi.Click += (_, _) => click();
+            return mi;
+        }
+        var asleep = _act == Act.Sleep;
+        yield return asleep ? Item("_Wake up", () => Start(Act.Wake)) : Item("Take a _nap", () => Start(Act.Sleep));
+        yield return Item("_Play with yarn", () => Start(Act.Play));
+        yield return Item("Go for a _walk", () => Start(Act.Walk), !Data.StayPut);
+        var stay = new MenuItem { Header = "_Stay where I put you", IsCheckable = true, IsChecked = Data.StayPut };
+        stay.Click += (_, _) =>
+        {
+            Save(Data with { StayPut = stay.IsChecked });
+            if (Data.StayPut && _act == Act.Walk) Start(Act.Sit);
+            ApplyColour();
+        };
+        yield return stay;
+    }
+
+    protected override void OnDoubleClick() => Start(Act.Play);
+
+    private static bool Sleepy => DateTime.Now.Hour is >= 22 or < 7;
+
+    // ---- what she's doing
+
+    private void Start(Act act, double seconds = 0)
+    {
+        if (act == Act.Walk && Data.StayPut) act = Act.Sit;
+        if (_act == Act.Walk && act != Act.Walk) StopWalking();
+        _act = act;
+        _actStarted = Environment.TickCount64;
+        seconds = seconds > 0 ? seconds : act switch
+        {
+            Act.Walk => 4 + Random.Shared.NextDouble() * 8,
+            Act.Sleep => Sleepy ? 600 + Random.Shared.NextDouble() * 1200 : 30 + Random.Shared.NextDouble() * 60,
+            Act.Wake => 1.8,
+            Act.Play => 6.5,
+            Act.Happy => 1.8,
+            _ => 3 + Random.Shared.NextDouble() * 6,
+        };
+        _actUntil = _actStarted + (long)(seconds * 1000);
+        if (act == Act.Walk)
+        {
+            SavesMoves = false;
+            if (Random.Shared.NextDouble() < 0.4) _dir = -_dir;
+        }
+        Show(PoseFor(0));
+        ApplyColour();   // the menu offers "Wake up" while she sleeps
+    }
+
+    private void StopWalking()
+    {
+        if (SavesMoves) return;
+        SavesMoves = true;
+        Save(Data with { X = Left, Y = Top });
+    }
+
+    /// <summary>When one thing ends, pick the next, the way a cat would (mostly naps at night).</summary>
+    private void Next()
+    {
+        var roll = Random.Shared.NextDouble();
+        switch (_act)
+        {
+            case Act.Sleep: Start(Act.Wake); break;
+            case Act.Wake or Act.Happy or Act.Play: Start(Act.Sit); break;
+            default:
+                if (Sleepy) Start(roll < 0.7 ? Act.Sleep : Act.Sit);
+                else if (_act == Act.Walk) Start(roll < 0.75 ? Act.Sit : Act.Play);
+                else Start(roll < 0.55 && !Data.StayPut ? Act.Walk : roll < 0.75 ? Act.Play : roll < 0.9 ? Act.Sleep : Act.Sit);
+                break;
+        }
+    }
+
+    private void Clicked()
+    {
+        if (_act == Act.Sleep) { Start(Act.Wake); Say("mrrp?"); return; }
+        Start(Act.Happy);
+        Say(Purrs[Random.Shared.Next(Purrs.Length)]);
+    }
+
+    private static readonly string[] Purrs = ["purr~", "mrrp!", "hi!", "nya~", "♥", "*slow blink*"];
+
+    private void Say(string text)
+    {
+        _bubble.Text = text;
+        _bubbleUntil = Environment.TickCount64 + 1800;
+    }
+
+    // ---- every frame
+
+    private string PoseFor(long ms) => _act switch
+    {
+        Act.Walk => $"walk-{ms / 150 % 4 + 1}",
+        // breathing: the curled-up pose and the one with z's take turns, with a twitch now and then
+        Act.Sleep => ms % 9000 is > 6000 and < 6350 ? "sleep-twitch" : ms / 1300 % 2 == 0 ? "sleep" : "sleep-breathe",
+        Act.Wake => "stretch",
+        Act.Happy => "walk-1",
+        Act.Play => ms switch
+        {
+            < 900 => "play-crouch",
+            < 1500 => "play-bat",
+            < 2100 => "play-crouch",
+            < 2700 => "play-bat",
+            < 4500 => "play-roll",
+            _ => "play-sit",
+        },
+        _ => "walk-3",
+    };
+
+    private string? _shown;
+
+    private void Show(string pose)
+    {
+        if (pose == _shown) return;
+        _shown = pose;
+        _cat.Source = Pose(pose, _fur);
+    }
 
     private void Tick()
     {
         var now = Environment.TickCount64;
-        var hour = DateTime.Now.Hour;
-        var sleepy = (hour >= 22 || hour < 7) && now > _happyUntil;
-        if (!sleepy && now > _blinkUntil + 2500 && Random.Shared.NextDouble() < 0.02) _blinkUntil = now + 160;
-        var happy = now < _happyUntil;
-        var closed = sleepy || now < _blinkUntil;
-        _eyeL.Visibility = _eyeR.Visibility = closed || happy ? Visibility.Hidden : Visibility.Visible;
-        _closedEyes.Visibility = closed && !happy ? Visibility.Visible : Visibility.Hidden;
-        _happyEyes.Visibility = happy ? Visibility.Visible : Visibility.Hidden;
-        _zzz.Visibility = sleepy ? Visibility.Visible : Visibility.Collapsed;
-
-        // eyes look toward the pointer
-        double dx = 0, dy = 0;
-        if (IsLoaded && PresentationSource.FromVisual(_art) is not null && GetCursorPos(out var p))
-        {
-            var centre = _art.PointToScreen(new Point(32 * K, 29 * K));
-            var (vx, vy) = (p.X - centre.X, p.Y - centre.Y);
-            var len = Math.Sqrt(vx * vx + vy * vy);
-            if (len > 1) (dx, dy) = (vx / len * 1.6, vy / len * 1.3);
-        }
-        Place(_eyeL, 21 + dx, 29.5 + dy);
-        Place(_eyeR, 43 + dx, 29.5 + dy);
-
-        // the heart floats up and fades after a purr
-        var t = happy ? 1 - (_happyUntil - now) / 1600.0 : 1;
-        _heart.Opacity = happy ? Math.Max(0, 1 - t) : 0;
-        _heart.RenderTransform = new TransformGroup { Children = { new ScaleTransform(K, K), new TranslateTransform(0, -t * 14 * K) } };
-        _bubble.Opacity = happy ? Math.Max(0, 1 - t * t) : 0;
+        var dt = Math.Min(0.2, (now - _lastTick) / 1000.0);
+        _lastTick = now;
+        if (_pressed) return;   // being dragged
+        if (now >= _actUntil) Next();
+        Show(PoseFor(now - _actStarted));
+        _flip.ScaleX = _act == Act.Walk ? _dir : _flip.ScaleX;
+        if (_act == Act.Walk) Walk(dt);
+        _bubble.Opacity = now < _bubbleUntil ? Math.Min(1, (_bubbleUntil - now) / 400.0) : 0;
     }
 
-    private static void Place(Ellipse e, double x, double y)
+    /// <summary>A few steps along, turning round at the edges of the screen she's on.</summary>
+    private void Walk(double dt)
     {
-        Canvas.SetLeft(e, (x - 2.1) * K);
-        Canvas.SetTop(e, (y - 2.1) * K);
+        if (PresentationSource.FromVisual(this) is null) return;
+        var (left, right) = ScreenEdges();
+        var x = Left + _dir * WalkSpeed * dt;
+        // the window has a 14 DIP margin round the card; let her walk right up to the edge
+        if (x < left - 14) { x = left - 14; _dir = 1; }
+        if (x + Width > right + 14) { x = right + 14 - Width; _dir = -1; }
+        Left = x;
     }
 
-    private static readonly string[] Purrs = ["purr~", "mrrp!", "hi!", "nya~", "*slow blink*"];
+    [DllImport("user32.dll")] private static extern nint MonitorFromWindow(nint hwnd, uint flags);
+    [DllImport("user32.dll")] private static extern bool GetMonitorInfoW(nint mon, ref MONITORINFO mi);
+    [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO { public int cbSize; public RECT rcMonitor, rcWork; public uint dwFlags; }
 
-    private void Purr()
+    /// <summary>The left and right of the work area of the screen she's on, in DIPs.</summary>
+    private (double Left, double Right) ScreenEdges()
     {
-        _happyUntil = Environment.TickCount64 + 1600;
-        _bubble.Text = Purrs[Random.Shared.Next(Purrs.Length)];
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (hwnd == 0 || !GetMonitorInfoW(MonitorFromWindow(hwnd, 2 /* nearest */), ref mi))
+            return (SystemParameters.WorkArea.Left, SystemParameters.WorkArea.Right);
+        var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        return (mi.rcWork.Left / scale, mi.rcWork.Right / scale);
     }
 }
 

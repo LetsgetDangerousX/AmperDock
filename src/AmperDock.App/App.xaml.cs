@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using AmperDock.App.Dock;
 using AmperDock.App.Gallery;
+using AmperDock.App.Home;
 using AmperDock.App.Looks;
 using AmperDock.App.Settings;
 using AmperDock.App.Theme;
@@ -24,13 +25,13 @@ public partial class App : Application
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AmperDock", "logs", "amperdock.log");
 
     private Mutex? _single;
+    private EventWaitHandle? _showSignal;
     private SettingsStore? _store;
     private ThemeManager? _theme;
     private readonly List<DockHost> _docks = [];
-    private readonly Dictionary<string, AppearanceWindow> _appearanceWindows = new();
     private LookService? _looks;
     private DesktopWidgetManager? _widgets;
-    private LookPacksWindow? _looksWindow;
+    private HomeWindow? _home;
     private GalleryWindow? _gallery;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -52,7 +53,15 @@ public partial class App : Application
             : @"Local\AmperDock.SingleInstance." + Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(
                 System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(db).ToLowerInvariant())))[..16];
         _single = new Mutex(true, name, out var first);
-        if (!first) { Shutdown(); return; }
+        // double-clicking the shortcut while AmperDock is already running: ask the running copy to open its window
+        _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, name + ".Show");
+        if (!first)
+        {
+            if (!e.Args.Contains(Autostart.Flag)) _showSignal.Set();
+            Shutdown();
+            return;
+        }
+        ListenForShowRequests(_showSignal);
 
         _theme = new ThemeManager();
         _theme.Apply(_theme.IsDark);
@@ -119,8 +128,48 @@ public partial class App : Application
         StartUpdateChecks();
         _looks.Changed += () => { foreach (var d in _docks) d.RefreshIcons(); };   // folder items pick up new folder icons
         _looks.Start();
+        SeedAutostart(_store);
+        // the AmperDock window opens when you start AmperDock yourself; signing in to Windows starts just the dock
         if (e.Args.Contains("--looks")) OpenLooks();
-        if (e.Args.Contains("--appearance") && _docks.Count > 0) OpenAppearance(_docks[0]);
+        else if (e.Args.Contains("--appearance") && _docks.Count > 0) OpenAppearance(_docks[0]);
+        else if (!e.Args.Contains(Autostart.Flag) && !e.Args.Contains("--gallery")) OpenHome(HomeWindow.Tab.Dock);
+    }
+
+    /// <summary>A second copy started from the shortcut sets the signal; bring the window up when it does.</summary>
+    private void ListenForShowRequests(EventWaitHandle signal)
+    {
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                while (true)
+                {
+                    signal.WaitOne();
+                    Dispatcher.BeginInvoke(() => OpenHome(HomeWindow.Tab.Dock));
+                }
+            }
+            catch (ObjectDisposedException) { }   // shutting down
+        }) { IsBackground = true, Name = "AmperDock show requests" };
+        thread.Start();
+    }
+
+    /// <summary>An installed copy starts with Windows unless you turn it off (once, the first time it runs).</summary>
+    private static void SeedAutostart(SettingsStore store)
+    {
+        if (store.GetSetting("autostart_seeded") is not null) return;
+        if (Updates.IsInstalled && !Autostart.IsOn) Autostart.Set(true);
+        store.SetSetting("autostart_seeded", "true");
+    }
+
+    private void OpenHome(HomeWindow.Tab tab, DockHost? dock = null)
+    {
+        if (_home is null)
+        {
+            _home = new HomeWindow(new HomeContext(_store!, () => _docks, _looks!, new AppDockLooks(this), _widgets!,
+                from => { NewDock(from); return _docks.LastOrDefault(); }, RemoveDock));
+            _home.Closed += (_, _) => _home = null;
+        }
+        _home.ShowTab(tab, dock);
     }
 
     /// <summary>A brand-new dock gets a couple of apps every Windows install has, so it isn't empty and confusing.</summary>
@@ -146,12 +195,7 @@ public partial class App : Application
         _gallery.Show();
     }
 
-    private void OpenLooks()
-    {
-        if (_looksWindow is { IsLoaded: true }) { _looksWindow.Activate(); return; }
-        _looksWindow = new LookPacksWindow(_looks!, new AppDockLooks(this));
-        _looksWindow.Show();
-    }
+    private void OpenLooks() => OpenHome(HomeWindow.Tab.Looks);
 
     /// <summary>The docks, as the look service sees them (theme packs change their looks, and give their folders icons).</summary>
     private sealed class AppDockLooks(App app) : IDockLooks
@@ -194,19 +238,15 @@ public partial class App : Application
 
     private void StartDock(string id)
     {
-        try { _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, RemoveDock, (kind, _) => _widgets!.Add(kind)))); }
+        try
+        {
+            _docks.Add(new DockHost(_store!, _theme!, id, new DockCommands(OpenAppearance, OpenLooks, NewDock, d => RemoveDock(d),
+                (kind, _) => _widgets!.Add(kind), d => OpenHome(HomeWindow.Tab.Dock, d))));
+        }
         catch (Exception ex) { Log(ex); }
     }
 
-    private void OpenAppearance(DockHost dock)
-    {
-        if (_appearanceWindows.TryGetValue(dock.ContainerId, out var open)) { open.Activate(); return; }
-        var win = new AppearanceWindow(dock, _store!);
-        if (!dock.IsMain) win.Title = $"Dock appearance: {_store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name}";
-        _appearanceWindows[dock.ContainerId] = win;
-        win.Closed += (_, _) => _appearanceWindows.Remove(dock.ContainerId);
-        win.Show();
-    }
+    private void OpenAppearance(DockHost dock) => OpenHome(HomeWindow.Tab.Appearance, dock);
 
     /// <summary>
     /// "New dock": an empty dock on the same screen, on an edge no other dock uses there (left, right,
@@ -224,6 +264,7 @@ public partial class App : Application
         var n = _store!.GetDocks().Count + 1;
         var id = _store.CreateDock($"Dock {n}", placement, from.Appearance);
         StartDock(id);
+        _home?.DocksChanged();
     }
 
     /// <summary>
@@ -238,19 +279,22 @@ public partial class App : Application
             DispatcherPriority.ApplicationIdle);
     }
 
-    private void RemoveDock(DockHost dock)
+    private bool RemoveDock(DockHost dock)
     {
-        if (dock.IsMain) return;
+        if (dock.IsMain) return false;
         var name = _store!.GetDocks().FirstOrDefault(d => d.Id == dock.ContainerId)?.Name ?? "this dock";
         var what = dock.ItemCount switch { 0 => "", 1 => " and the 1 item on it", var c => $" and the {c} items on it" };
         var detail = "Only the dock goes. Your apps, files and folders aren't touched.";
-        var answer = MessageBox.Show($"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}{detail}",
-            "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
-        if (answer != MessageBoxResult.OK) return;
-        if (_appearanceWindows.TryGetValue(dock.ContainerId, out var win)) win.Close();
+        var text = $"Remove {name}{what}?{Environment.NewLine}{Environment.NewLine}{detail}";
+        var answer = _home is { IsVisible: true }
+            ? MessageBox.Show(_home, text, "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel)
+            : MessageBox.Show(text, "Remove dock", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK) return false;
         _docks.Remove(dock);
         dock.Dispose();
         _store.DeleteDock(dock.ContainerId);
+        _home?.DocksChanged();
+        return true;
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -259,6 +303,7 @@ public partial class App : Application
         _widgets?.CloseAll();
         foreach (var d in _docks) d.Dispose();
         _store?.Dispose();
+        _showSignal?.Dispose();
         _single?.Dispose();
         base.OnExit(e);
     }

@@ -24,6 +24,7 @@ public sealed record DesktopWidget
     public string Text { get; init; } = "";                   // note: its text; countdown: its title
     public DateTime? Target { get; init; }                    // countdown: the moment it counts to (local time)
     public bool Clock24 { get; init; }                        // clock: 24-hour time
+    public bool StayPut { get; init; }                        // mochi: stays where you put her instead of wandering
     public string? Place { get; init; }                       // weather: the place's name as found ("Paris, France")
     public double? Latitude { get; init; }                    // weather: where it's for
     public double? Longitude { get; init; }

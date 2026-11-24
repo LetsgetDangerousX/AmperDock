@@ -21,7 +21,7 @@ dotnet publish src\AmperDock.App -c Release -r win-x64 --self-contained true -p:
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
 vpk pack --packId Ampersite.AmperDock --packVersion $Version --packDir $publish --mainExe AmperDock.exe `
-    --packTitle "AmperDock" --packAuthors "Ampersite LLC" --icon src\AmperDock.App\Assets\AmperDock.ico `
+    --packTitle "AmperDock" --packAuthors "AmperLabs LLC" --icon src\AmperDock.App\Assets\AmperDock.ico `
     --outputDir (Join-Path $root "artifacts\releases")
 if ($LASTEXITCODE -ne 0) { throw "pack failed" }
 Write-Host "Installer: $(Join-Path $root 'artifacts\releases\Ampersite.AmperDock-win-Setup.exe')"

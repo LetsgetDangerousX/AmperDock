@@ -13,9 +13,10 @@ namespace AmperDock.App.Settings;
 
 /// <summary>
 /// Dock appearance: style, three colour slots edited with a full picker, gradient direction, corners,
-/// opacity and outline. Live preview on the dock; Cancel restores what was there.
+/// opacity and outline. A tab of the AmperDock window. Live preview on the dock; Save keeps it, Undo changes
+/// (or closing the window without saving) puts back the last saved look.
 /// </summary>
-public partial class AppearanceWindow : Window
+public partial class AppearancePage : UserControl
 {
     private enum Slot { Fill, GradientEnd, Outline, Indicator }
 
@@ -38,12 +39,20 @@ public partial class AppearanceWindow : Window
 
     private readonly DockHost _dock;
     private readonly SettingsStore _store;
-    private readonly DockAppearance _original;
+    private DockAppearance _original;
     private DockAppearance _current;
     private Slot _slot = Slot.Fill;
-    private bool _loading = true, _saved;
+    private bool _loading = true, _dirty;
 
-    public AppearanceWindow(DockHost dock, SettingsStore store)
+    public DockHost Dock => _dock;
+
+    /// <summary>Is the dock showing a look that hasn't been saved?</summary>
+    public bool HasUnsavedChanges => _dirty;
+
+    /// <summary>A place beside the page title for the window's dock picker.</summary>
+    public object? HeaderExtraContent { get => HeaderExtra.Content; set => HeaderExtra.Content = value; }
+
+    public AppearancePage(DockHost dock, SettingsStore store)
     {
         _dock = dock;
         _store = store;
@@ -61,7 +70,34 @@ public partial class AppearanceWindow : Window
 
         LoadControls(_current);
         _loading = false;
-        Closed += (_, _) => { if (!_saved) _dock.PreviewAppearance(_original); };
+        SyncSaveState();
+    }
+
+    /// <summary>
+    /// The page is showing again: if nothing is waiting to be saved, pick up the dock's current look
+    /// (a theme pack may have changed it meanwhile).
+    /// </summary>
+    public void Refresh()
+    {
+        if (_dirty || _dock.Appearance == _current) return;
+        _original = _dock.Appearance;
+        LoadControls(_original);
+        SyncSaveState();
+    }
+
+    /// <summary>Put back the last saved look (the window is closing, or this dock is going away).</summary>
+    public void Discard()
+    {
+        if (!_dirty) return;
+        _dock.PreviewAppearance(_original);
+        _current = _original;
+        _dirty = false;
+    }
+
+    private void SyncSaveState()
+    {
+        SaveButton.IsEnabled = UndoButton.IsEnabled = _dirty;
+        SaveState.Text = _dirty ? "Not saved yet" : "";
     }
 
     // ---------------------------------------------------------------- state <-> controls
@@ -102,7 +138,9 @@ public partial class AppearanceWindow : Window
     {
         _current = a.Normalised();
         _dock.PreviewAppearance(_current);
+        _dirty = _current != _original.Normalised();
         SyncAll();
+        SyncSaveState();
     }
 
     /// <summary>Refresh everything that depends on the current appearance (cards, slots, picker, labels).</summary>
@@ -446,12 +484,19 @@ public partial class AppearanceWindow : Window
         Apply(DockAppearance.Default);
     }
 
-    private void OnCancel(object sender, RoutedEventArgs e) => Close();   // Closed restores the original
+    private void OnUndo(object sender, RoutedEventArgs e)
+    {
+        _slot = Slot.Fill;
+        LoadControls(_original);
+        Apply(_original);
+    }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
         _dock.SaveAppearance(ReadSliders());
-        _saved = true;
-        Close();
+        _original = _current = _dock.Appearance;
+        _dirty = false;
+        SyncSaveState();
+        SaveState.Text = "Saved";
     }
 }

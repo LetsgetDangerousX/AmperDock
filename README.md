@@ -1,6 +1,6 @@
 # AmperDock
 
-A cute-but-clean dock for Windows 10/11, by Ampersite LLC.
+A cute-but-clean dock for Windows 10/11, by AmperLabs LLC.
 
 **Download:** get `Ampersite.AmperDock-win-Setup.exe` from [Releases](https://github.com/LetsgetDangerousX/AmperDock/releases). It installs
 for you only (no admin) and updates itself.
@@ -31,7 +31,7 @@ dotnet run --project src/AmperDock.App
 Right-click the dock → **Look packs**. Cursors and folder icons change real Windows settings, and both can be
 undone from the same window ("Your original cursors", and Restore next to each folder).
 
-All art (icons, cursors, trails, dock themes, wallpapers) is original, © Ampersite LLC. The finished files the app uses are in
+All art (icons, cursors, trails, dock themes, wallpapers) is original, © AmperLabs LLC. The finished files the app uses are in
 `src/AmperDock.App/LookPacks` and `src/AmperDock.App/DockThemes`.
 
 ## Installer

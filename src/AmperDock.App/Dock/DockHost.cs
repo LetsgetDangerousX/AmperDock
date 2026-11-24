@@ -25,7 +25,7 @@ namespace AmperDock.App.Dock;
 /// </summary>
 /// <summary>What a dock's menu can ask the app to do (things that involve other windows or other docks).</summary>
 public sealed record DockCommands(Action<DockHost> OpenAppearance, Action OpenLooks, Action<DockHost> NewDock, Action<DockHost> RemoveDock,
-    Action<string, DockHost> AddWidget);
+    Action<string, DockHost> AddWidget, Action<DockHost> OpenHome);
 
 public sealed class DockHost : IDisposable
 {
@@ -390,7 +390,72 @@ public sealed class DockHost : IDisposable
         _placement = p;
         Place();
         Kick();
-        if (save) _store.SetPlacement(_containerId, p with { MonitorKey = _monitorKey });
+        if (save)
+        {
+            _store.SetPlacement(_containerId, p with { MonitorKey = _monitorKey });
+            Changed?.Invoke();
+        }
+    }
+
+    // ------------------------------------------------------------------ for the AmperDock window
+
+    /// <summary>The dock's items, placement or behaviour changed (from its own menu, a drag or the window).</summary>
+    public event Action? Changed;
+
+    public DockBehavior Behavior => _behavior;
+    public bool ShowsOpenAppsSetting => ShowsOpenApps;
+    public IReadOnlyList<DockItem> PinnedItems => _pinned;
+
+    /// <summary>The auto-hide choices: how long to rest at the screen edge before the dock comes back.</summary>
+    public static IReadOnlyList<(int Ms, string Label)> RevealChoices { get; } =
+        [(0, "no wait"), (300, "0.3 seconds"), (600, "0.6 seconds"), (1000, "1 second"), (2000, "2 seconds")];
+
+    /// <summary>The screens a dock can go on: Windows' device name, and a friendly name.</summary>
+    public static IReadOnlyList<(string Key, string Name)> Screens()
+    {
+        var primary = MonitorFromPoint(new POINT(), MONITOR_DEFAULTTOPRIMARY);
+        return Monitors().Select((m, i) => (m.key, $"Screen {i + 1}{(m.handle == primary ? " (main)" : "")}")).ToList();
+    }
+
+    /// <summary>Put the dock on a screen edge (or floating), on the given screen.</summary>
+    public void MoveTo(DockEdge edge, string? monitorKey)
+    {
+        var key = monitorKey ?? _monitorKey;
+        if (edge == DockEdge.Float)
+        {
+            var target = Monitors().FirstOrDefault(m => m.key == key);
+            var w = target.handle == 0 ? _work : new RectF(target.work.Left, target.work.Top, target.work.Right - target.work.Left, target.work.Bottom - target.work.Top);
+            ApplyPlacement(new DockPlacement(DockEdge.Float, key, 0.5f, (int)(w.X + w.W / 2), (int)(w.Bottom - w.H * 0.25f)), save: true);
+        }
+        else ApplyPlacement(new DockPlacement(edge, key, _placement.Edge == edge ? _placement.Alignment : 0.5f), save: true);
+    }
+
+    public void ChangeBehavior(DockBehavior b)
+    {
+        var openApps = ShowsOpenApps;
+        SetBehavior(b);
+        if (ShowsOpenApps != openApps) { TaskWatcher.Shared.Refresh(); RefreshTasks(); }
+    }
+
+    public void EditPinned(DockItem item) => EditItem(item);
+    public void AddApp() => AddFromAppList(-1);
+    public void AddFileOrFolder(bool folder) => AddFromPicker(folder, -1);
+
+    public void RemovePinned(DockItem item)
+    {
+        _store.RemoveItem(item.Id);
+        Reload();
+        Toast($"Removed {item.Label}");
+    }
+
+    /// <summary>Move a pinned item one place along the dock.</summary>
+    public void MovePinned(DockItem item, int by)
+    {
+        var from = _pinned.FindIndex(i => i.Id == item.Id);
+        var to = from + by;
+        if (from < 0 || to < 0 || to >= _pinned.Count) return;
+        _store.MoveItem(item.Id, to);   // index counted without the item itself
+        Reload();
     }
 
     // ------------------------------------------------------------------ data
@@ -412,6 +477,7 @@ public sealed class DockHost : IDisposable
         foreach (var gone in _size.Keys.Except(_items.Select(i => i.Id)).ToList()) _size.Remove(gone);
         RefreshTasks();
         Kick();
+        Changed?.Invoke();
     }
 
     /// <summary>Which items have open windows, and whether one of them is in front. Runs after every window change.</summary>
@@ -675,6 +741,7 @@ public sealed class DockHost : IDisposable
         // auto-hide or "keep windows clear" changed: let go of (or take back) the screen edge right now,
         // or maximised windows keep stopping short of a dock that's hidden
         if (ReservesSpace != reserved) { _appBarRect = default; Place(); }
+        Changed?.Invoke();
         if (!b.Previews) HidePreview();
         _pointerLeftAt = Environment.TickCount64;
         Kick();
@@ -1282,7 +1349,7 @@ public sealed class DockHost : IDisposable
         var hit = DockLayout.HitTest(rects, x, y, _m.Spacing / 2);
         var menu = CreatePopupMenu();
         var position = CreatePopupMenu();
-        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, WidgetBase = 40;
+        const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, Home = 19, WidgetBase = 40;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
         const int HideOff = 30, HideTip = 31, HideBase = 32;
         if (hit >= 0 && IsOpenApp(_items[hit]))
@@ -1331,6 +1398,7 @@ public sealed class DockHost : IDisposable
         if (!IsMain) AppendMenu(menu, MF_STRING, RemoveDock, "Remove &this dock…");
         AppendMenu(menu, MF_STRING, Looks, "&Look packs: cursors, trails, folder icons…");
         AppendMenu(menu, MF_SEPARATOR, 0, null);
+        AppendMenu(menu, MF_STRING, Home, "Open &AmperDock (all settings)…");
         AppendMenu(menu, MF_STRING, Quit, "&Quit AmperDock");
 
         var (wx, wy) = _frame.ToWindow(x, y);
@@ -1417,6 +1485,9 @@ public sealed class DockHost : IDisposable
                 break;
             case Looks:
                 _commands.OpenLooks();
+                break;
+            case Home:
+                _commands.OpenHome(this);
                 break;
             case Quit:
                 System.Windows.Application.Current.Shutdown();

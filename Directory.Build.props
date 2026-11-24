@@ -3,7 +3,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Company>Ampersite LLC</Company>
+    <Company>AmperLabs LLC</Company>
     <Product>AmperDock</Product>
     <Version>0.0.1</Version>
   </PropertyGroup>

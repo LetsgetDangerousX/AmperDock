@@ -6,15 +6,18 @@ using System.Windows.Media;
 
 namespace AmperDock.App.Looks;
 
-/// <summary>Look packs: pick cursors, a cursor trail and folder icons. Every choice applies immediately and can be undone.</summary>
-public partial class LookPacksWindow : Window
+/// <summary>
+/// Look packs (a tab of the AmperDock window): theme packs, cursors, a cursor trail and folder icons.
+/// Every choice applies immediately and can be undone.
+/// </summary>
+public partial class LookPacksPage : UserControl
 {
     private readonly LookService _looks;
     private readonly IDockLooks _docks;
     private FolderIconInfo? _selectedIcon;
     private ThemePackInfo? _selectedPack;
 
-    public LookPacksWindow(LookService looks, IDockLooks docks)
+    public LookPacksPage(LookService looks, IDockLooks docks)
     {
         _looks = looks;
         _docks = docks;
@@ -22,9 +25,12 @@ public partial class LookPacksWindow : Window
         _selectedIcon = looks.Catalog.FolderIcons.FirstOrDefault();
         _selectedPack = looks.Catalog.ThemePacks.FirstOrDefault(p => p.Id == looks.AppliedPack?.PackId) ?? looks.Catalog.ThemePacks.FirstOrDefault();
         Rebuild();
-        looks.Changed += OnChanged;
-        Closed += (_, _) => looks.Changed -= OnChanged;
+        // listen only while on screen, so a closed window doesn't keep rebuilding
+        Loaded += (_, _) => { looks.Changed -= OnChanged; looks.Changed += OnChanged; Rebuild(); };
+        Unloaded += (_, _) => looks.Changed -= OnChanged;
     }
+
+    private Window? Owner => Window.GetWindow(this);
 
     private void OnChanged() => Dispatcher.BeginInvoke(Rebuild);
 
@@ -202,7 +208,7 @@ public partial class LookPacksWindow : Window
     {
         if (_selectedIcon is null) return;
         var dlg = new Microsoft.Win32.OpenFolderDialog { Title = $"Give folders the {_selectedIcon.Name} icon", Multiselect = true };
-        if (dlg.ShowDialog(this) != true) return;
+        if ((Owner is { } owner ? dlg.ShowDialog(owner) : dlg.ShowDialog()) != true) return;
         var errors = dlg.FolderNames.Select(f => _looks.ApplyFolderIcon(_selectedIcon, f)).Where(err => err is not null).ToList();
         Report(errors.Count == 0
             ? null
@@ -237,7 +243,9 @@ public partial class LookPacksWindow : Window
         catch (Exception ex)
         {
             App.Log(ex);
-            MessageBox.Show(this, $"That didn't work: {ex.Message}", "Look packs", MessageBoxButton.OK, MessageBoxImage.Warning);
+            var text = $"That didn't work: {ex.Message}";
+            if (Owner is { } owner) MessageBox.Show(owner, text, "Look packs", MessageBoxButton.OK, MessageBoxImage.Warning);
+            else MessageBox.Show(text, "Look packs", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -279,6 +287,4 @@ public partial class LookPacksWindow : Window
         card.LostKeyboardFocus += (_, _) => card.SetResourceReference(Border.BorderBrushProperty, selected ? "Brush.FocusRing" : "Brush.Border");
         return card;
     }
-
-    private void OnDone(object sender, RoutedEventArgs e) => Close();
 }

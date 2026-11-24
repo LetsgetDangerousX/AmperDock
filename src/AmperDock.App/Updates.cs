@@ -32,6 +32,9 @@ public static class Updates
         }
     }
 
+    /// <summary>Was this copy installed with the AmperDock installer (so it can update itself)?</summary>
+    public static bool IsInstalled => Manager() is not null;
+
     /// <summary>Look for a newer version and download it. Returns its version number, or null if there's nothing new.</summary>
     public static async Task<string?> CheckAndDownloadAsync()
     {
