@@ -22,7 +22,7 @@ public partial class LookPacksPage : UserControl
         _looks = looks;
         _docks = docks;
         InitializeComponent();
-        _selectedIcon = looks.Catalog.FolderIcons.FirstOrDefault();
+        _selectedIcon = looks.Catalog.FolderChoices.FirstOrDefault();
         _selectedPack = looks.Catalog.ThemePacks.FirstOrDefault(p => p.Id == looks.AppliedPack?.PackId) ?? looks.Catalog.ThemePacks.FirstOrDefault();
         Rebuild();
         // listen only while on screen, so a closed window doesn't keep rebuilding
@@ -162,7 +162,7 @@ public partial class LookPacksPage : UserControl
     private void BuildFolders()
     {
         FolderCards.Children.Clear();
-        foreach (var icon in _looks.Catalog.FolderIcons)
+        foreach (var icon in _looks.Catalog.FolderChoices)
             FolderCards.Children.Add(Card(icon.Name, null, LookCatalog.Image(icon.Preview), null, _selectedIcon?.Id == icon.Id,
                 () => { _selectedIcon = icon; BuildFolders(); }, compact: true));
         ApplyFolderButton.Content = _selectedIcon is null ? "Choose folders…" : $"Give folders the {_selectedIcon.Name} icon…";
@@ -171,7 +171,7 @@ public partial class LookPacksPage : UserControl
         var everywhere = _looks.FolderIconEverywhere;
         EverywhereUndo.Visibility = everywhere is null ? Visibility.Collapsed : Visibility.Visible;
         if (everywhere is not null && string.IsNullOrEmpty(EverywhereStatus.Text))
-            EverywhereStatus.Text = $"Every folder uses {_looks.Catalog.FolderIcons.FirstOrDefault(i => i.Id == everywhere.IconId)?.Name ?? "an AmperDock"} icon.";
+            EverywhereStatus.Text = $"Every folder uses {_looks.Catalog.FolderChoices.FirstOrDefault(i => i.Id == everywhere.IconId)?.Name ?? "an AmperDock"} icon.";
 
         FolderList.Children.Clear();
         var done = _looks.Folders;
@@ -183,7 +183,7 @@ public partial class LookPacksPage : UserControl
         }
         foreach (var f in done)
         {
-            var icon = _looks.Catalog.FolderIcons.FirstOrDefault(i => i.Id == f.IconId);
+            var icon = _looks.Catalog.FolderChoices.FirstOrDefault(i => i.Id == f.IconId);
             var img = new Image { Width = 28, Height = 28, Margin = new Thickness(0, 0, 10, 0), Source = icon is null ? null : LookCatalog.Image(icon.Preview) };
             var path = new TextBlock { Text = f.Path, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
             path.SetResourceReference(StyleProperty, "Text.Body");

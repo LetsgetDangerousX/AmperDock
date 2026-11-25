@@ -41,6 +41,16 @@ public sealed class LookCatalog
     public List<TrailInfo> Trails { get; init; } = [];
     [JsonPropertyName("theme_packs")] public List<ThemePackInfo> ThemePacks { get; init; } = [];
     [JsonPropertyName("icon_library")] public List<FolderIconInfo> IconLibrary { get; init; } = [];
+    /// <summary>
+    /// What a folder can wear: the folder icons, then the 3D set and the Planet Pals from the icon library.
+    /// The library's candy pictures (each candy turned several ways) are left out: the four round candies are
+    /// already folder icons. Library ids get a "lib-" prefix, since some ("planet", "book") are folder ids too.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<FolderIconInfo> FolderChoices => _folderChoices ??= [.. FolderIcons,
+        .. IconLibrary.Where(i => i.Style != "Candy").Select(i => i with { Id = "lib-" + i.Id })];
+    private List<FolderIconInfo>? _folderChoices;
+
     [JsonPropertyName("slideshow_wallpapers")] public List<SlideshowWallpaperInfo> SlideshowWallpapers { get; init; } = [];
 
     public static string Root => Path.Combine(AppContext.BaseDirectory, "LookPacks");

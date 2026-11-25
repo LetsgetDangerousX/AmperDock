@@ -232,7 +232,7 @@ public sealed partial class LookService
             var looks = Folders.ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
             foreach (var (folder, iconBefore) in foldersBefore)
             {
-                if (iconBefore is not null && Catalog.FolderIcons.FirstOrDefault(i => i.Id == iconBefore) is { } icon) ApplyFolderIcon(icon, folder);
+                if (iconBefore is not null && Catalog.FolderChoices.FirstOrDefault(i => i.Id == iconBefore) is { } icon) ApplyFolderIcon(icon, folder);
                 else if (looks.TryGetValue(folder, out var look) && RestoreFolder(look) is { } err) problems.Add(err);
             }
         }
