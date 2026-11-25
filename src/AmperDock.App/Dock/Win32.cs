@@ -21,11 +21,11 @@ internal static partial class Win32
     // app bars: reserving a strip of the screen, as the taskbar does
     [StructLayout(LayoutKind.Sequential)]
     public struct APPBARDATA { public uint cbSize; public nint hWnd; public uint uCallbackMessage, uEdge; public RECT rc; public nint lParam; }
-    public const uint ABM_NEW = 0, ABM_REMOVE = 1, ABM_QUERYPOS = 2, ABM_SETPOS = 3, ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
+    public const uint ABM_NEW = 0, ABM_REMOVE = 1, ABM_QUERYPOS = 2, ABM_SETPOS = 3, ABN_POSCHANGED = 1;
     public const uint ABE_LEFT = 0, ABE_TOP = 1, ABE_RIGHT = 2, ABE_BOTTOM = 3;
     public const uint WM_APPBAR = 0x8000 + 0x41;   // WM_APP + n: Windows tells the dock when other bars move
     [DllImport("shell32.dll")] public static extern nint SHAppBarMessage(uint msg, ref APPBARDATA data);
-    public static readonly nint HWND_BOTTOM = 1, HWND_NOTOPMOST = -2, HWND_TOPMOST = -1;
+    public static readonly nint HWND_BOTTOM = 1, HWND_NOTOPMOST = -2;
     public const int GWLP_HWNDPARENT = -8;
     [StructLayout(LayoutKind.Sequential)]
     public struct WINDOWPOS { public nint hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
@@ -66,7 +66,6 @@ internal static partial class Win32
     public static partial bool SetWindowPos(nint hwnd, nint after, int x, int y, int w, int h, uint flags);
     [LibraryImport("user32.dll")] public static partial uint GetDpiForWindow(nint hwnd);
     [LibraryImport("user32.dll")] public static partial nint MonitorFromWindow(nint hwnd, uint flags);
-    [LibraryImport("user32.dll")] public static partial nint GetForegroundWindow();
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")] [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetMonitorInfo(nint mon, ref MONITORINFO mi);
     [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool TrackMouseEvent(ref TRACKMOUSEEVENT e);

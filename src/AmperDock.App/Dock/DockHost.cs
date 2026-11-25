@@ -314,14 +314,14 @@ public sealed class DockHost : IDisposable
 
     // ------------------------------------------------------------------ placement
 
-    /// <summary>Monitors: device name, monitor handle, work area and whole screen (screen px).</summary>
-    private static List<(string key, nint handle, RECT work, RECT screen)> Monitors()
+    /// <summary>Monitors: device name, monitor handle, work area (screen px).</summary>
+    private static List<(string key, nint handle, RECT work)> Monitors()
     {
-        var list = new List<(string, nint, RECT, RECT)>();
+        var list = new List<(string, nint, RECT)>();
         EnumDisplayMonitors(0, 0, (mon, _, _, _) =>
         {
             var mi = new MONITORINFOEX { cbSize = (uint)Marshal.SizeOf<MONITORINFOEX>() };
-            if (GetMonitorInfoEx(mon, ref mi)) list.Add((mi.szDevice, mon, mi.rcWork, mi.rcMonitor));
+            if (GetMonitorInfoEx(mon, ref mi)) list.Add((mi.szDevice, mon, mi.rcWork));
             return true;
         }, 0);
         return list;
@@ -335,16 +335,16 @@ public sealed class DockHost : IDisposable
         var mon = monitors.FirstOrDefault(m => m.key == _placement.MonitorKey);
         if (mon.handle == 0) mon = monitors.FirstOrDefault(m => m.handle == primary);   // monitor unplugged: fall back to primary
         _monitorKey = mon.key;
-        // the work area Windows reports leaves out the strip this dock reserves: give that strip back to ourselves.
-        // It's the strip actually reserved (which, just after the dock moves to another edge or screen, is still
-        // where it was), never a guess from the new edge, and the result never goes past the screen itself.
-        var (l, t, r, b) = (mon.work.Left, mon.work.Top, mon.work.Right, mon.work.Bottom);
-        var ar = _appBarRect;
-        if (_appBar && ar.Right > ar.Left && ar.Bottom > ar.Top
-            && ar.Left < mon.screen.Right && ar.Right > mon.screen.Left && ar.Top < mon.screen.Bottom && ar.Bottom > mon.screen.Top)
-            (l, t, r, b) = (Math.Min(l, ar.Left), Math.Min(t, ar.Top), Math.Max(r, ar.Right), Math.Max(b, ar.Bottom));
-        (l, t, r, b) = (Math.Max(l, mon.screen.Left), Math.Max(t, mon.screen.Top), Math.Min(r, mon.screen.Right), Math.Min(b, mon.screen.Bottom));
-        _work = new RectF(l, t, r - l, b - t);
+        _work = new RectF(mon.work.Left, mon.work.Top, mon.work.Right - mon.work.Left, mon.work.Bottom - mon.work.Top);
+        // our own reserved strip is part of the work area Windows reports less: give it back to ourselves
+        if (_reserved > 0)
+            _work = _placement.Edge switch
+            {
+                DockEdge.Top => new RectF(_work.X, _work.Y - _reserved, _work.W, _work.H + _reserved),
+                DockEdge.Left => new RectF(_work.X - _reserved, _work.Y, _work.W + _reserved, _work.H),
+                DockEdge.Right => new RectF(_work.X, _work.Y, _work.W + _reserved, _work.H),
+                _ => new RectF(_work.X, _work.Y, _work.W, _work.H + _reserved),
+            };
 
         _scale = GetDpiForMonitor(mon.handle, 0, out var dpi, out _) == 0 ? dpi / 96f : GetDpiForWindow(_hwnd) / 96f;
         _m = (_baseMetrics with { IndicatorSize = _baseMetrics.IndicatorSize * DockIndicators.SizeFactor(_appearance.IndicatorSize) }).Scale(_scale);
@@ -895,7 +895,6 @@ public sealed class DockHost : IDisposable
         var sizes = order.Select(i => _size.GetValueOrDefault(i.Id, _m.IconSize)).ToArray();
         var center = Center(Math.Max(order.Count, _dragging ? order.Count : 0));
         var (rects, bg) = DockLayout.Arrange(sizes, _m, center, _frame.Thickness);
-        _lastRects = rects;
 
         // empty dock: a short band with a hint, so a first-run user knows where to drop things
         if (order.Count == 0 && !_dragging)
@@ -949,7 +948,6 @@ public sealed class DockHost : IDisposable
             Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor,
             Attach: attach, Reflection: _appearance.Reflection / 100f, Skin: Skin?.ToDraw()), _style);
         _lastBackground = bg;
-        if (_expanded) UpdateActiveRegion();
         var grew = extent != _lastExtent;
         _lastExtent = extent;
         // at rest the window region hugs the band and its decorations; follow them when they change
@@ -1045,44 +1043,9 @@ public sealed class DockHost : IDisposable
         return (list, new RectF(x0, y0, x1 - x0, y1 - y0));
     }
 
-    private IReadOnlyList<RectF> _lastRects = [];
-    private (int l, int t, int r, int b) _activeRgn;
-
     /// <summary>
-    /// While the pointer is on the dock: just the band, its icons (magnified ones included) and the label
-    /// showing, so the rest of the strip stays click-through and the dock doesn't hold on to a pointer that's
-    /// working on a window beside or above it. Dragging an icon or the dock itself takes the whole window.
-    /// </summary>
-    private (int l, int t, int r, int b) ActiveRegion()
-    {
-        var (w, h) = _frame.WindowSize;
-        if (_dragging || _movingDock) return (0, 0, w, h);
-        var t = _frame.Thickness;
-        var bg = _lastBackground.W > 0 ? _lastBackground : new RectF(0, t - _m.BandHeight, _frame.Length, _m.BandHeight);
-        var e = _lastExtent.W > 0 ? _lastExtent : bg;
-        var pad = 4 * _scale;
-        var r = new RectF(e.X - pad, e.Y - pad, e.W + 2 * pad, t - e.Y + pad);   // the band and its decorations, down to the screen edge
-        foreach (var icon in _lastRects) r = Union(r, new RectF(icon.X - pad, icon.Y - pad, icon.W + 2 * pad, icon.H + 2 * pad));
-        if (_items.Count == 0 && HintVisible)
-            r = Union(r, _frame.Vertical ? new RectF(bg.X - 2, 0, bg.W + 4, t) : new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale));
-        var win = _frame.ToWindow(r);
-        if (_renderer?.LastLabelRect is { } label) win = Union(win, new RectF(label.X - 2, label.Y - 2, label.W + 4, label.H + 4));
-        return (Math.Max(0, (int)MathF.Floor(win.X)), Math.Max(0, (int)MathF.Floor(win.Y)), Math.Min(w, (int)MathF.Ceiling(win.Right)), Math.Min(h, (int)MathF.Ceiling(win.Bottom)));
-    }
-
-    /// <summary>Follow the icons and label as they grow and move (only when the region actually changes).</summary>
-    private void UpdateActiveRegion()
-    {
-        if (Tucked) return;
-        var a = ActiveRegion();
-        if (a == _activeRgn) return;
-        _activeRgn = a;
-        SetWindowRgn(_hwnd, CreateRectRgn(a.l, a.t, a.r, a.b), true);   // the system owns the region now
-    }
-
-    /// <summary>
-    /// Window region: the band, icons and label while the pointer is on the dock (see ActiveRegion),
-    /// just the band at rest, so the space beside it stays click-through.
+    /// Window region: the whole window while the pointer is on the dock (room for magnified icons and
+    /// labels), just the band at rest, so the space beside it stays click-through.
     /// </summary>
     private void SetExpanded(bool expanded, bool force = false)
     {
@@ -1110,15 +1073,9 @@ public sealed class DockHost : IDisposable
             else if (_items.Count == 0 && HintVisible)
                 r = Union(r, new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale));
         }
-        if (expanded && !Tucked)
-        {
-            _activeRgn = ActiveRegion();
-            SetWindowRgn(_hwnd, CreateRectRgn(_activeRgn.l, _activeRgn.t, _activeRgn.r, _activeRgn.b), true);
-            return;
-        }
-        _activeRgn = default;
         var win = _frame.ToWindow(r);
-        var rgn = CreateRectRgn((int)MathF.Floor(win.X), (int)MathF.Floor(win.Y), (int)MathF.Ceiling(win.Right), (int)MathF.Ceiling(win.Bottom));
+        var rgn = expanded ? CreateRectRgn(0, 0, w, h)
+            : CreateRectRgn((int)MathF.Floor(win.X), (int)MathF.Floor(win.Y), (int)MathF.Ceiling(win.Right), (int)MathF.Ceiling(win.Bottom));
         SetWindowRgn(_hwnd, rgn, true);   // the system owns rgn now
     }
 
@@ -1294,14 +1251,6 @@ public sealed class DockHost : IDisposable
 
             case WM_DROPFILES:
                 OnDropFiles(w);
-                return 0;
-
-            case WM_APPBAR when (uint)w == ABN_FULLSCREENAPP:
-                // a fullscreen app (a video, a game, a browser in F11) came up or went away on a screen: like the
-                // taskbar, step behind it rather than cover it, and come back on top afterwards
-                // (only for a fullscreen app on this dock's own screen; HWND_BOTTOM also takes away "always on top")
-                if (l != 0 && MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTONEAREST) != MonitorFromWindow(_hwnd, MONITOR_DEFAULTTONEAREST)) return 0;
-                SetWindowPos(_hwnd, l != 0 ? HWND_BOTTOM : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
                 return 0;
 
             case WM_APPBAR when (uint)w == ABN_POSCHANGED:   // another bar (the taskbar) moved: find our place again

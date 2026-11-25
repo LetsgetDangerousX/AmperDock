@@ -176,27 +176,9 @@
     },
     {
       "id": "candy",
-      "name": "Pink hard candy",
+      "name": "Candy",
       "icon": "folders/candy.ico",
       "preview": "previews/folder-candy.png"
-    },
-    {
-      "id": "candy-swirl",
-      "name": "Peppermint swirl",
-      "icon": "folders/candy-swirl.ico",
-      "preview": "previews/folder-candy-swirl.png"
-    },
-    {
-      "id": "candy-sprinkles",
-      "name": "Sprinkle chocolate",
-      "icon": "folders/candy-sprinkles.ico",
-      "preview": "previews/folder-candy-sprinkles.png"
-    },
-    {
-      "id": "candy-pink-choc",
-      "name": "Pink chocolate",
-      "icon": "folders/candy-pink-choc.ico",
-      "preview": "previews/folder-candy-pink-choc.png"
     },
     {
       "id": "3d-lilac",
