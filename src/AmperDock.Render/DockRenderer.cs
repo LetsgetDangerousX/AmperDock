@@ -286,9 +286,13 @@ public sealed class DockRenderer : IDisposable
         }
     }
 
+    /// <summary>Where the last frame's label pill was drawn (window pixels), or null if there was none.</summary>
+    public RectF? LastLabelRect { get; private set; }
+
     public void Draw(DockScene scene, DockStyle style)
     {
         var ctx = _ctx!;
+        LastLabelRect = null;
         ctx.BeginDraw();
         ctx.Clear(new Color4(0, 0, 0, 0));
 
@@ -909,6 +913,7 @@ public sealed class DockRenderer : IDisposable
         };
         x = Math.Clamp(x, 2, Math.Max(2, _width - w - 2));
         y = Math.Clamp(y, 2, Math.Max(2, _height - h - 2));
+        LastLabelRect = new RectF(x, y, w, h);
         using var bg = ctx.CreateSolidColorBrush(style.LabelBg.ToColor4());
         using var fg = ctx.CreateSolidColorBrush(style.LabelText.ToColor4());
         ctx.FillRoundedRectangle(new RoundedRectangle(new RectangleF(x, y, w, h), h / 2, h / 2), bg);

@@ -89,7 +89,8 @@ public sealed class MochiWidget : WidgetWindow
         _lastTick = Environment.TickCount64;
         _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(40), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
         _tick.Start();
-        Closed += (_, _) => { _tick.Stop(); LeaveThing(); StopMoving(); };
+        // closing: let go of the thing she's at, without showing this (closed) window again
+        Closed += (_, _) => { _tick.Stop(); if (_thing is { } th) { _thing = null; if (th.Visitor == this) th.Visit(null); } };
         // diagnostics: AMPERDOCK_MOCHI=walk|play|sleep|sit starts her doing that; AMPERDOCK_MOCHI_MODE sets what she keeps doing
         if (Environment.GetEnvironmentVariable("AMPERDOCK_MOCHI_MODE") is { } m) Save(Data with { MochiMode = m });
         if (Enum.TryParse<Act>(Environment.GetEnvironmentVariable("AMPERDOCK_MOCHI"), true, out var first)) Start(first);
