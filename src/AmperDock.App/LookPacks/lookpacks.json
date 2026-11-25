@@ -1,1043 +1,1234 @@
 {
- "cursor_sets": [
-  {
-   "id": "kitty",
-   "name": "Kitty",
-   "arrow": "cursors/kitty/arrow.cur",
-   "hand": "cursors/kitty/hand.cur",
-   "preview_arrow": "previews/cursor-kitty-arrow.png",
-   "preview_hand": "previews/cursor-kitty-hand.png"
-  },
-  {
-   "id": "sakura",
-   "name": "Sakura",
-   "arrow": "cursors/sakura/arrow.cur",
-   "hand": "cursors/sakura/hand.cur",
-   "preview_arrow": "previews/cursor-sakura-arrow.png",
-   "preview_hand": "previews/cursor-sakura-hand.png"
-  },
-  {
-   "id": "starry",
-   "name": "Starry night",
-   "arrow": "cursors/starry/arrow.cur",
-   "hand": "cursors/starry/hand.cur",
-   "preview_arrow": "previews/cursor-starry-arrow.png",
-   "preview_hand": "previews/cursor-starry-hand.png"
-  },
-  {
-   "id": "strawberry",
-   "name": "Strawberry",
-   "arrow": "cursors/strawberry/arrow.cur",
-   "hand": "cursors/strawberry/hand.cur",
-   "preview_arrow": "previews/cursor-strawberry-arrow.png",
-   "preview_hand": "previews/cursor-strawberry-hand.png"
-  },
-  {
-   "id": "acorn",
-   "name": "Acorn",
-   "arrow": "cursors/acorn/arrow.cur",
-   "hand": "cursors/acorn/hand.cur",
-   "preview_arrow": "previews/cursor-acorn-arrow.png",
-   "preview_hand": "previews/cursor-acorn-hand.png"
-  },
-  {
-   "id": "ghost",
-   "name": "Little ghost",
-   "arrow": "cursors/ghost/arrow.cur",
-   "hand": "cursors/ghost/hand.cur",
-   "preview_arrow": "previews/cursor-ghost-arrow.png",
-   "preview_hand": "previews/cursor-ghost-hand.png"
-  },
-  {
-   "id": "neon",
-   "name": "Neon",
-   "arrow": "cursors/neon/arrow.cur",
-   "hand": "cursors/neon/hand.cur",
-   "preview_arrow": "previews/cursor-neon-arrow.png",
-   "preview_hand": "previews/cursor-neon-hand.png"
-  },
-  {
-   "id": "quill",
-   "name": "Quill",
-   "arrow": "cursors/quill/arrow.cur",
-   "hand": "cursors/quill/hand.cur",
-   "preview_arrow": "previews/cursor-quill-arrow.png",
-   "preview_hand": "previews/cursor-quill-hand.png"
-  },
-  {
-   "id": "planet",
-   "name": "Planet",
-   "arrow": "cursors/planet/arrow.cur",
-   "hand": "cursors/planet/hand.cur",
-   "preview_arrow": "previews/cursor-planet-arrow.png",
-   "preview_hand": "previews/cursor-planet-hand.png"
-  },
-  {
-   "id": "cloudy",
-   "name": "Cloudy",
-   "arrow": "cursors/cloudy/arrow.cur",
-   "hand": "cursors/cloudy/hand.cur",
-   "preview_arrow": "previews/cursor-cloudy-arrow.png",
-   "preview_hand": "previews/cursor-cloudy-hand.png"
-  }
- ],
- "folder_icons": [
-  {
-   "id": "purrple",
-   "name": "Purrple",
-   "icon": "folders/purrple.ico",
-   "preview": "previews/folder-purrple.png"
-  },
-  {
-   "id": "mushroom",
-   "name": "Mushroom",
-   "icon": "folders/mushroom.ico",
-   "preview": "previews/folder-mushroom.png"
-  },
-  {
-   "id": "bunny",
-   "name": "Bunny",
-   "icon": "folders/bunny.ico",
-   "preview": "previews/folder-bunny.png"
-  },
-  {
-   "id": "bear",
-   "name": "Bear",
-   "icon": "folders/bear.ico",
-   "preview": "previews/folder-bear.png"
-  },
-  {
-   "id": "cloud",
-   "name": "Cloud",
-   "icon": "folders/cloud.ico",
-   "preview": "previews/folder-cloud.png"
-  },
-  {
-   "id": "holo",
-   "name": "Holographic",
-   "icon": "folders/holo.ico",
-   "preview": "previews/folder-holo.png"
-  },
-  {
-   "id": "sakura",
-   "name": "Sakura",
-   "icon": "folders/sakura.ico",
-   "preview": "previews/folder-sakura.png"
-  },
-  {
-   "id": "strawberry",
-   "name": "Strawberry",
-   "icon": "folders/strawberry.ico",
-   "preview": "previews/folder-strawberry.png"
-  },
-  {
-   "id": "pixel-heart",
-   "name": "Pixel heart",
-   "icon": "folders/pixel-heart.ico",
-   "preview": "previews/folder-pixel-heart.png"
-  },
-  {
-   "id": "leaf",
-   "name": "Autumn leaf",
-   "icon": "folders/leaf.ico",
-   "preview": "previews/folder-leaf.png"
-  },
-  {
-   "id": "ghost",
-   "name": "Ghost",
-   "icon": "folders/ghost.ico",
-   "preview": "previews/folder-ghost.png"
-  },
-  {
-   "id": "neon",
-   "name": "Neon",
-   "icon": "folders/neon.ico",
-   "preview": "previews/folder-neon.png"
-  },
-  {
-   "id": "book",
-   "name": "Book",
-   "icon": "folders/book.ico",
-   "preview": "previews/folder-book.png"
-  },
-  {
-   "id": "planet",
-   "name": "Planet",
-   "icon": "folders/planet.ico",
-   "preview": "previews/folder-planet.png"
-  },
-  {
-   "id": "3d-lilac",
-   "name": "3D lilac",
-   "icon": "folders/3d-lilac.ico",
-   "preview": "previews/folder-3d-lilac.png"
-  },
-  {
-   "id": "3d-pink",
-   "name": "3D pink",
-   "icon": "folders/3d-pink.ico",
-   "preview": "previews/folder-3d-pink.png"
-  },
-  {
-   "id": "3d-night",
-   "name": "3D night sky",
-   "icon": "folders/3d-night.ico",
-   "preview": "previews/folder-3d-night.png"
-  }
- ],
- "trails": [
-  {
-   "id": "paws",
-   "name": "Paws",
-   "tag": "cartoon",
-   "sprites": [
-    "trails/paws_0.png"
-   ],
-   "preview": "previews/trail-paws.png",
-   "spacing": 26,
-   "life": 1.4,
-   "size": [
-    16,
-    16
-   ],
-   "align": true,
-   "alternate": 6
-  },
-  {
-   "id": "sparkles",
-   "name": "Sparkles",
-   "tag": "cartoon",
-   "sprites": [
-    "trails/sparkles_0.png",
-    "trails/sparkles_1.png"
-   ],
-   "preview": "previews/trail-sparkles.png",
-   "spacing": 6,
-   "count": 2,
-   "jitter": 5,
-   "life": 0.65,
-   "size": [
-    6,
-    14
-   ],
-   "vx": [
-    -18,
-    18
-   ],
-   "vy": [
-    -54,
-    -18
-   ],
-   "shrink": true
-  },
-  {
-   "id": "hearts",
-   "name": "Hearts",
-   "tag": "cartoon",
-   "sprites": [
-    "trails/hearts_0.png",
-    "trails/hearts_1.png",
-    "trails/hearts_2.png"
-   ],
-   "preview": "previews/trail-hearts.png",
-   "spacing": 18,
-   "life": 1.0,
-   "size": [
-    16,
-    24
-   ],
-   "vx": [
-    -12,
-    12
-   ],
-   "vy": [
-    -36,
-    -36
-   ],
-   "rot": [
-    -0.3,
-    0.3
-   ],
-   "pop": true
-  },
-  {
-   "id": "kitties",
-   "name": "Kitties",
-   "tag": "cartoon",
-   "sprites": [
-    "trails/kitties_0.png",
-    "trails/kitties_1.png",
-    "trails/kitties_2.png",
-    "trails/kitties_3.png"
-   ],
-   "preview": "previews/trail-kitties.png",
-   "spacing": 30,
-   "life": 1.4,
-   "size": [
-    22,
-    22
-   ],
-   "vy": [
-    -15,
-    -15
-   ],
-   "rot": [
-    -0.15,
-    0.15
-   ],
-   "pop": true
-  },
-  {
-   "id": "shrooms",
-   "name": "Mushrooms",
-   "tag": "cartoon",
-   "sprites": [
-    "trails/shrooms_0.png",
-    "trails/shrooms_1.png",
-    "trails/shrooms_2.png"
-   ],
-   "preview": "previews/trail-shrooms.png",
-   "spacing": 26,
-   "life": 1.3,
-   "size": [
-    18,
-    24
-   ],
-   "vy": [
-    9,
-    9
-   ],
-   "rot": [
-    -0.2,
-    0.2
-   ],
-   "pop": true
-  },
-  {
-   "id": "petals",
-   "name": "Sakura petals",
-   "tag": "spring",
-   "sprites": [
-    "trails/petals_0.png",
-    "trails/petals_1.png",
-    "trails/petals_2.png"
-   ],
-   "preview": "previews/trail-petals.png",
-   "spacing": 14,
-   "life": 1.5,
-   "size": [
-    9,
-    15
-   ],
-   "vx": [
-    18,
-    48
-   ],
-   "vy": [
-    21,
-    39
-   ],
-   "spin": [
-    -1.8,
-    1.8
-   ],
-   "sway": 24
-  },
-  {
-   "id": "butterflies",
-   "name": "Butterflies",
-   "tag": "spring",
-   "sprites": [
-    "trails/butterflies_0.png",
-    "trails/butterflies_1.png",
-    "trails/butterflies_2.png",
-    "trails/butterflies_3.png",
-    "trails/butterflies_4.png"
-   ],
-   "preview": "previews/trail-butterflies.png",
-   "spacing": 34,
-   "life": 1.7,
-   "size": [
-    14,
-    20
-   ],
-   "vx": [
-    -24,
-    24
-   ],
-   "vy": [
-    -54,
-    -30
-   ],
-   "flap": true
-  },
-  {
-   "id": "leaves",
-   "name": "Leaves",
-   "tag": "autumn",
-   "sprites": [
-    "trails/leaves_0.png",
-    "trails/leaves_1.png",
-    "trails/leaves_2.png",
-    "trails/leaves_3.png"
-   ],
-   "preview": "previews/trail-leaves.png",
-   "spacing": 18,
-   "life": 1.5,
-   "size": [
-    11,
-    17
-   ],
-   "vx": [
-    -9,
-    18
-   ],
-   "vy": [
-    24,
-    48
-   ],
-   "spin": [
-    -2.4,
-    2.4
-   ],
-   "sway": 24
-  },
-  {
-   "id": "snow",
-   "name": "Snowflakes",
-   "tag": "winter",
-   "sprites": [
-    "trails/snow_0.png",
-    "trails/snow_1.png",
-    "trails/snow_2.png"
-   ],
-   "preview": "previews/trail-snow.png",
-   "spacing": 14,
-   "jitter": 5,
-   "life": 1.4,
-   "size": [
-    9,
-    17
-   ],
-   "vx": [
-    -12,
-    12
-   ],
-   "vy": [
-    18,
-    36
-   ],
-   "spin": [
-    -0.9,
-    0.9
-   ]
-  },
-  {
-   "id": "bubbles",
-   "name": "Bubbles",
-   "tag": "3D",
-   "sprites": [
-    "trails/bubbles_0.png",
-    "trails/bubbles_1.png",
-    "trails/bubbles_2.png",
-    "trails/bubbles_3.png",
-    "trails/bubbles_4.png"
-   ],
-   "preview": "previews/trail-bubbles.png",
-   "spacing": 12,
-   "jitter": 4,
-   "life": 1.4,
-   "size": [
-    9,
-    24
-   ],
-   "vx": [
-    -15,
-    15
-   ],
-   "vy": [
-    -60,
-    -30
-   ],
-   "pop": true
-  },
-  {
-   "id": "candy",
-   "name": "Candy stars",
-   "tag": "3D",
-   "sprites": [
-    "trails/candy_0.png",
-    "trails/candy_1.png",
-    "trails/candy_2.png",
-    "trails/candy_3.png",
-    "trails/candy_4.png"
-   ],
-   "preview": "previews/trail-candy.png",
-   "spacing": 18,
-   "life": 1.2,
-   "size": [
-    13,
-    21
-   ],
-   "vx": [
-    -24,
-    24
-   ],
-   "vy": [
-    -12,
-    -12
-   ],
-   "spin": [
-    -2.4,
-    2.4
-   ],
-   "gravity": 108,
-   "pop": true
-  },
-  {
-   "id": "planets",
-   "name": "Planets",
-   "tag": "space",
-   "sprites": [
-    "trails/planets_0.png",
-    "trails/planets_1.png",
-    "trails/planets_2.png",
-    "trails/planets_3.png"
-   ],
-   "preview": "previews/trail-planets.png",
-   "spacing": 30,
-   "life": 1.5,
-   "size": [
-    16,
-    22
-   ],
-   "vx": [
-    -12,
-    12
-   ],
-   "vy": [
-    -24,
-    -12
-   ],
-   "rot": [
-    -0.3,
-    0.3
-   ],
-   "pop": true
-  },
-  {
-   "id": "ghosts",
-   "name": "Little ghosts",
-   "tag": "Halloween",
-   "sprites": [
-    "trails/ghosts_0.png",
-    "trails/ghosts_1.png"
-   ],
-   "preview": "previews/trail-ghosts.png",
-   "spacing": 32,
-   "life": 1.5,
-   "size": [
-    18,
-    22
-   ],
-   "vy": [
-    -30,
-    -30
-   ],
-   "sway": 14,
-   "pop": true
-  },
-  {
-   "id": "neon",
-   "name": "Neon sparks",
-   "tag": "synthwave",
-   "sprites": [
-    "trails/neon_0.png",
-    "trails/neon_1.png",
-    "trails/neon_2.png"
-   ],
-   "preview": "previews/trail-neon.png",
-   "spacing": 6,
-   "count": 2,
-   "jitter": 4,
-   "life": 0.7,
-   "size": [
-    8,
-    16
-   ],
-   "vx": [
-    -18,
-    18
-   ],
-   "vy": [
-    -30,
-    10
-   ],
-   "shrink": true
-  },
-  {
-   "id": "fireflies",
-   "name": "Fireflies",
-   "tag": "cozy",
-   "sprites": [
-    "trails/fireflies_0.png",
-    "trails/fireflies_1.png"
-   ],
-   "preview": "previews/trail-fireflies.png",
-   "spacing": 16,
-   "life": 1.6,
-   "size": [
-    8,
-    14
-   ],
-   "vx": [
-    -14,
-    14
-   ],
-   "vy": [
-    -28,
-    -10
-   ],
-   "sway": 18,
-   "shrink": true
-  }
- ],
- "theme_packs": [
-  {
-   "id": "cozy-leaves",
-   "name": "Cozy Leaves",
-   "mood": "Autumn",
-   "blurb": "Falling maple leaves and two cats on the garden fence.",
-   "dock_theme": "autumn-leaf",
-   "cursor_set": "acorn",
-   "trail": "leaves",
-   "folder_icon": "leaf",
-   "wallpaper": "wallpapers/cozy-leaves.png",
-   "preview": "previews/pack-cozy-leaves.png"
-  },
-  {
-   "id": "boo-patch",
-   "name": "Boo Patch",
-   "mood": "Halloween",
-   "blurb": "A sweet ghost with a lantern and a pumpkin with cat ears.",
-   "dock_theme": "boo",
-   "cursor_set": "ghost",
-   "trail": "ghosts",
-   "folder_icon": "ghost",
-   "wallpaper": "wallpapers/boo-patch.png",
-   "preview": "previews/pack-boo-patch.png"
-  },
-  {
-   "id": "neon-drive",
-   "name": "Neon Drive",
-   "mood": "Synthwave",
-   "blurb": "A sliced sunset, a glowing grid road and a neon cat.",
-   "dock_theme": "neon",
-   "cursor_set": "neon",
-   "trail": "neon",
-   "folder_icon": "neon",
-   "wallpaper": "wallpapers/neon-drive.png",
-   "preview": "previews/pack-neon-drive.png"
-  },
-  {
-   "id": "moonlit-library",
-   "name": "Moonlit Library",
-   "mood": "Dark academia",
-   "blurb": "A castle under the moon, old books and a sleepy candle.",
-   "dock_theme": "library",
-   "cursor_set": "quill",
-   "trail": "fireflies",
-   "folder_icon": "book",
-   "wallpaper": "wallpapers/moonlit-library.png",
-   "preview": "previews/pack-moonlit-library.png"
-  },
-  {
-   "id": "cosmic-pals",
-   "name": "Cosmic Pals",
-   "mood": "Space",
-   "blurb": "A big lilac planet with a glowing ring, and Planet Pals drifting by.",
-   "dock_theme": "starlight",
-   "cursor_set": "planet",
-   "trail": "planets",
-   "folder_icon": "planet",
-   "wallpaper": "wallpapers/cosmic-pals.png",
-   "preview": "previews/pack-cosmic-pals.png"
-  },
-  {
-   "id": "cloud-meadow",
-   "name": "Cloud Meadow",
-   "mood": "Dreamy sky",
-   "blurb": "Puffy clouds over a flower meadow. One of them is a friend.",
-   "dock_theme": "cloud",
-   "cursor_set": "cloudy",
-   "trail": "butterflies",
-   "folder_icon": "cloud",
-   "wallpaper": "wallpapers/cloud-meadow.png",
-   "preview": "previews/pack-cloud-meadow.png"
-  }
- ],
- "icon_library": [
-  {
-   "id": "planet",
-   "name": "Planet",
-   "style": "3D",
-   "icon": "icons/planet.ico",
-   "preview": "previews/icon-planet.png"
-  },
-  {
-   "id": "crystal",
-   "name": "Crystal ball",
-   "style": "3D",
-   "icon": "icons/crystal.ico",
-   "preview": "previews/icon-crystal.png"
-  },
-  {
-   "id": "potion",
-   "name": "Potion",
-   "style": "3D",
-   "icon": "icons/potion.ico",
-   "preview": "previews/icon-potion.png"
-  },
-  {
-   "id": "book",
-   "name": "Spell book",
-   "style": "3D",
-   "icon": "icons/book.ico",
-   "preview": "previews/icon-book.png"
-  },
-  {
-   "id": "candle",
-   "name": "Candle",
-   "style": "3D",
-   "icon": "icons/candle.ico",
-   "preview": "previews/icon-candle.png"
-  },
-  {
-   "id": "moon",
-   "name": "Moon",
-   "style": "3D",
-   "icon": "icons/moon.ico",
-   "preview": "previews/icon-moon.png"
-  },
-  {
-   "id": "mushroom",
-   "name": "Mushroom",
-   "style": "3D",
-   "icon": "icons/mushroom.ico",
-   "preview": "previews/icon-mushroom.png"
-  },
-  {
-   "id": "heart",
-   "name": "Heart gem",
-   "style": "3D",
-   "icon": "icons/heart.ico",
-   "preview": "previews/icon-heart.png"
-  },
-  {
-   "id": "paw",
-   "name": "Paw",
-   "style": "3D",
-   "icon": "icons/paw.ico",
-   "preview": "previews/icon-paw.png"
-  },
-  {
-   "id": "teacup",
-   "name": "Teacup",
-   "style": "3D",
-   "icon": "icons/teacup.ico",
-   "preview": "previews/icon-teacup.png"
-  },
-  {
-   "id": "star",
-   "name": "Star",
-   "style": "3D",
-   "icon": "icons/star.ico",
-   "preview": "previews/icon-star.png"
-  },
-  {
-   "id": "pal-ringo",
-   "name": "Ringo",
-   "style": "Planet Pals",
-   "icon": "icons/pal-ringo.ico",
-   "preview": "previews/icon-pal-ringo.png"
-  },
-  {
-   "id": "pal-terra",
-   "name": "Terra",
-   "style": "Planet Pals",
-   "icon": "icons/pal-terra.ico",
-   "preview": "previews/icon-pal-terra.png"
-  },
-  {
-   "id": "pal-snooze",
-   "name": "Snooze",
-   "style": "Planet Pals",
-   "icon": "icons/pal-snooze.ico",
-   "preview": "previews/icon-pal-snooze.png"
-  },
-  {
-   "id": "pal-rosie",
-   "name": "Rosie",
-   "style": "Planet Pals",
-   "icon": "icons/pal-rosie.ico",
-   "preview": "previews/icon-pal-rosie.png"
-  },
-  {
-   "id": "pal-big-swirl",
-   "name": "Big Swirl",
-   "style": "Planet Pals",
-   "icon": "icons/pal-big-swirl.ico",
-   "preview": "previews/icon-pal-big-swirl.png"
-  },
-  {
-   "id": "pal-frost",
-   "name": "Frost",
-   "style": "Planet Pals",
-   "icon": "icons/pal-frost.ico",
-   "preview": "previews/icon-pal-frost.png"
-  },
-  {
-   "id": "pal-sunny",
-   "name": "Sunny",
-   "style": "Planet Pals",
-   "icon": "icons/pal-sunny.ico",
-   "preview": "previews/icon-pal-sunny.png"
-  },
-  {
-   "id": "pal-zip",
-   "name": "Zip",
-   "style": "Planet Pals",
-   "icon": "icons/pal-zip.ico",
-   "preview": "previews/icon-pal-zip.png"
-  },
-  {
-   "id": "pal-kitty-rocket",
-   "name": "Kitty Rocket",
-   "style": "Planet Pals",
-   "icon": "icons/pal-kitty-rocket.ico",
-   "preview": "previews/icon-pal-kitty-rocket.png"
-  },
-  {
-   "id": "pal-twink",
-   "name": "Twink",
-   "style": "Planet Pals",
-   "icon": "icons/pal-twink.ico",
-   "preview": "previews/icon-pal-twink.png"
-  },
-  {
-   "id": "pal-nap-moon",
-   "name": "Nap Moon",
-   "style": "Planet Pals",
-   "icon": "icons/pal-nap-moon.ico",
-   "preview": "previews/icon-pal-nap-moon.png"
-  },
-  {
-   "id": "candy-pink-hard",
-   "name": "Pink hard candy",
-   "style": "Candy",
-   "icon": "icons/candy-pink-hard.ico",
-   "preview": "previews/icon-candy-pink-hard.png"
-  },
-  {
-   "id": "candy-pink-hard-2",
-   "name": "Pink candy, turned",
-   "style": "Candy",
-   "icon": "icons/candy-pink-hard-2.ico",
-   "preview": "previews/icon-candy-pink-hard-2.png"
-  },
-  {
-   "id": "candy-pink-choc",
-   "name": "Pink chocolate",
-   "style": "Candy",
-   "icon": "icons/candy-pink-choc.ico",
-   "preview": "previews/icon-candy-pink-choc.png"
-  },
-  {
-   "id": "candy-pink-choc-2",
-   "name": "Pink chocolate, bitten",
-   "style": "Candy",
-   "icon": "icons/candy-pink-choc-2.ico",
-   "preview": "previews/icon-candy-pink-choc-2.png"
-  },
-  {
-   "id": "candy-swirl",
-   "name": "Peppermint swirl",
-   "style": "Candy",
-   "icon": "icons/candy-swirl.ico",
-   "preview": "previews/icon-candy-swirl.png"
-  },
-  {
-   "id": "candy-swirl-2",
-   "name": "Pink swirl",
-   "style": "Candy",
-   "icon": "icons/candy-swirl-2.ico",
-   "preview": "previews/icon-candy-swirl-2.png"
-  },
-  {
-   "id": "candy-sprinkles",
-   "name": "Sprinkle chocolate",
-   "style": "Candy",
-   "icon": "icons/candy-sprinkles.ico",
-   "preview": "previews/icon-candy-sprinkles.png"
-  },
-  {
-   "id": "candy-sprinkles-2",
-   "name": "Sprinkle chocolate, turned",
-   "style": "Candy",
-   "icon": "icons/candy-sprinkles-2.ico",
-   "preview": "previews/icon-candy-sprinkles-2.png"
-  }
- ],
- "slideshow_wallpapers": [
-  {
-   "id": "helix-glow",
-   "name": "Helix Glow",
-   "wallpaper": "wallpapers/slideshow/helix-glow.png"
-  },
-  {
-   "id": "cat-constellation",
-   "name": "Cat Constellation",
-   "wallpaper": "wallpapers/slideshow/cat-constellation.png"
-  },
-  {
-   "id": "inventor-sketch",
-   "name": "Inventor's Sketch",
-   "wallpaper": "wallpapers/slideshow/inventor-sketch.png"
-  },
-  {
-   "id": "hilltop-breeze",
-   "name": "Hilltop Breeze",
-   "wallpaper": "wallpapers/slideshow/hilltop-breeze.png"
-  },
-  {
-   "id": "leaf-frame",
-   "name": "Leaf Frame",
-   "wallpaper": "wallpapers/slideshow/leaf-frame.png"
-  },
-  {
-   "id": "melty-planets",
-   "name": "Melty Planets",
-   "wallpaper": "wallpapers/slideshow/melty-planets.png"
-  },
-  {
-   "id": "leaf-wreath",
-   "name": "Leaf Wreath",
-   "wallpaper": "wallpapers/slideshow/leaf-wreath.png"
-  },
-  {
-   "id": "little-boo",
-   "name": "Little Boo",
-   "wallpaper": "wallpapers/slideshow/little-boo.png"
-  },
-  {
-   "id": "pumpkin-lane",
-   "name": "Pumpkin Lane",
-   "wallpaper": "wallpapers/slideshow/pumpkin-lane.png"
-  },
-  {
-   "id": "twilight-cats",
-   "name": "Twilight Cats",
-   "wallpaper": "wallpapers/slideshow/twilight-cats.png"
-  },
-  {
-   "id": "fox-meadow",
-   "name": "Fox Meadow",
-   "wallpaper": "wallpapers/slideshow/fox-meadow.png"
-  },
-  {
-   "id": "tea-time",
-   "name": "Tea Time",
-   "wallpaper": "wallpapers/slideshow/tea-time.png"
-  },
-  {
-   "id": "frog-leaves",
-   "name": "Frog in the Leaves",
-   "wallpaper": "wallpapers/slideshow/frog-leaves.png"
-  },
-  {
-   "id": "neon-ring",
-   "name": "Neon Ring",
-   "wallpaper": "wallpapers/slideshow/neon-ring.png"
-  },
-  {
-   "id": "light-ribbons",
-   "name": "Light Ribbons",
-   "wallpaper": "wallpapers/slideshow/light-ribbons.png"
-  },
-  {
-   "id": "neon-stripes",
-   "name": "Neon Stripes",
-   "wallpaper": "wallpapers/slideshow/neon-stripes.png"
-  },
-  {
-   "id": "neon-skyline",
-   "name": "Neon Skyline",
-   "wallpaper": "wallpapers/slideshow/neon-skyline.png"
-  },
-  {
-   "id": "study-desk",
-   "name": "Study Desk",
-   "wallpaper": "wallpapers/slideshow/study-desk.png"
-  },
-  {
-   "id": "witch-nap",
-   "name": "Witch's Nap",
-   "wallpaper": "wallpapers/slideshow/witch-nap.png"
-  },
-  {
-   "id": "rainy-lane",
-   "name": "Rainy Lane",
-   "wallpaper": "wallpapers/slideshow/rainy-lane.png"
-  },
-  {
-   "id": "pumpkin-peek",
-   "name": "Pumpkin Peek",
-   "wallpaper": "wallpapers/slideshow/pumpkin-peek.png"
-  },
-  {
-   "id": "lavender-keys",
-   "name": "Lavender Keys",
-   "wallpaper": "wallpapers/slideshow/lavender-keys.png"
-  },
-  {
-   "id": "firefly-ghost",
-   "name": "Firefly Ghost",
-   "wallpaper": "wallpapers/slideshow/firefly-ghost.png"
-  },
-  {
-   "id": "fence-friends",
-   "name": "Fence Friends",
-   "wallpaper": "wallpapers/slideshow/fence-friends.png"
-  },
-  {
-   "id": "neon-grid",
-   "name": "Neon Grid",
-   "wallpaper": "wallpapers/slideshow/neon-grid.png"
-  },
-  {
-   "id": "block-city",
-   "name": "Block City",
-   "wallpaper": "wallpapers/slideshow/block-city.png"
-  },
-  {
-   "id": "rooftop-cafe",
-   "name": "Rooftop Caf\u00c3\u00a9",
-   "wallpaper": "wallpapers/slideshow/rooftop-cafe.png"
-  },
-  {
-   "id": "neon-alley",
-   "name": "Neon Alley",
-   "wallpaper": "wallpapers/slideshow/neon-alley.png"
-  },
-  {
-   "id": "moon-castle",
-   "name": "Moon Castle",
-   "wallpaper": "wallpapers/slideshow/moon-castle.png"
-  },
-  {
-   "id": "trick-treat",
-   "name": "Trick or Treat",
-   "wallpaper": "wallpapers/slideshow/trick-treat.png"
-  }
- ]
+  "cursor_sets": [
+    {
+      "id": "kitty",
+      "name": "Kitty",
+      "arrow": "cursors/kitty/arrow.cur",
+      "hand": "cursors/kitty/hand.cur",
+      "preview_arrow": "previews/cursor-kitty-arrow.png",
+      "preview_hand": "previews/cursor-kitty-hand.png"
+    },
+    {
+      "id": "sakura",
+      "name": "Sakura",
+      "arrow": "cursors/sakura/arrow.cur",
+      "hand": "cursors/sakura/hand.cur",
+      "preview_arrow": "previews/cursor-sakura-arrow.png",
+      "preview_hand": "previews/cursor-sakura-hand.png"
+    },
+    {
+      "id": "starry",
+      "name": "Starry night",
+      "arrow": "cursors/starry/arrow.cur",
+      "hand": "cursors/starry/hand.cur",
+      "preview_arrow": "previews/cursor-starry-arrow.png",
+      "preview_hand": "previews/cursor-starry-hand.png"
+    },
+    {
+      "id": "strawberry",
+      "name": "Strawberry",
+      "arrow": "cursors/strawberry/arrow.cur",
+      "hand": "cursors/strawberry/hand.cur",
+      "preview_arrow": "previews/cursor-strawberry-arrow.png",
+      "preview_hand": "previews/cursor-strawberry-hand.png"
+    },
+    {
+      "id": "acorn",
+      "name": "Acorn",
+      "arrow": "cursors/acorn/arrow.cur",
+      "hand": "cursors/acorn/hand.cur",
+      "preview_arrow": "previews/cursor-acorn-arrow.png",
+      "preview_hand": "previews/cursor-acorn-hand.png"
+    },
+    {
+      "id": "ghost",
+      "name": "Little ghost",
+      "arrow": "cursors/ghost/arrow.cur",
+      "hand": "cursors/ghost/hand.cur",
+      "preview_arrow": "previews/cursor-ghost-arrow.png",
+      "preview_hand": "previews/cursor-ghost-hand.png"
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "arrow": "cursors/neon/arrow.cur",
+      "hand": "cursors/neon/hand.cur",
+      "preview_arrow": "previews/cursor-neon-arrow.png",
+      "preview_hand": "previews/cursor-neon-hand.png"
+    },
+    {
+      "id": "quill",
+      "name": "Quill",
+      "arrow": "cursors/quill/arrow.cur",
+      "hand": "cursors/quill/hand.cur",
+      "preview_arrow": "previews/cursor-quill-arrow.png",
+      "preview_hand": "previews/cursor-quill-hand.png"
+    },
+    {
+      "id": "planet",
+      "name": "Planet",
+      "arrow": "cursors/planet/arrow.cur",
+      "hand": "cursors/planet/hand.cur",
+      "preview_arrow": "previews/cursor-planet-arrow.png",
+      "preview_hand": "previews/cursor-planet-hand.png"
+    },
+    {
+      "id": "cloudy",
+      "name": "Cloudy",
+      "arrow": "cursors/cloudy/arrow.cur",
+      "hand": "cursors/cloudy/hand.cur",
+      "preview_arrow": "previews/cursor-cloudy-arrow.png",
+      "preview_hand": "previews/cursor-cloudy-hand.png"
+    },
+    {
+      "id": "candy",
+      "name": "Candy",
+      "arrow": "cursors/candy/arrow.cur",
+      "hand": "cursors/candy/hand.cur",
+      "preview_arrow": "previews/cursor-candy-arrow.png",
+      "preview_hand": "previews/cursor-candy-hand.png"
+    }
+  ],
+  "folder_icons": [
+    {
+      "id": "purrple",
+      "name": "Purrple",
+      "icon": "folders/purrple.ico",
+      "preview": "previews/folder-purrple.png"
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom",
+      "icon": "folders/mushroom.ico",
+      "preview": "previews/folder-mushroom.png"
+    },
+    {
+      "id": "bunny",
+      "name": "Bunny",
+      "icon": "folders/bunny.ico",
+      "preview": "previews/folder-bunny.png"
+    },
+    {
+      "id": "bear",
+      "name": "Bear",
+      "icon": "folders/bear.ico",
+      "preview": "previews/folder-bear.png"
+    },
+    {
+      "id": "cloud",
+      "name": "Cloud",
+      "icon": "folders/cloud.ico",
+      "preview": "previews/folder-cloud.png"
+    },
+    {
+      "id": "holo",
+      "name": "Holographic",
+      "icon": "folders/holo.ico",
+      "preview": "previews/folder-holo.png"
+    },
+    {
+      "id": "sakura",
+      "name": "Sakura",
+      "icon": "folders/sakura.ico",
+      "preview": "previews/folder-sakura.png"
+    },
+    {
+      "id": "strawberry",
+      "name": "Strawberry",
+      "icon": "folders/strawberry.ico",
+      "preview": "previews/folder-strawberry.png"
+    },
+    {
+      "id": "pixel-heart",
+      "name": "Pixel heart",
+      "icon": "folders/pixel-heart.ico",
+      "preview": "previews/folder-pixel-heart.png"
+    },
+    {
+      "id": "leaf",
+      "name": "Autumn leaf",
+      "icon": "folders/leaf.ico",
+      "preview": "previews/folder-leaf.png"
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost",
+      "icon": "folders/ghost.ico",
+      "preview": "previews/folder-ghost.png"
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "icon": "folders/neon.ico",
+      "preview": "previews/folder-neon.png"
+    },
+    {
+      "id": "book",
+      "name": "Book",
+      "icon": "folders/book.ico",
+      "preview": "previews/folder-book.png"
+    },
+    {
+      "id": "planet",
+      "name": "Planet",
+      "icon": "folders/planet.ico",
+      "preview": "previews/folder-planet.png"
+    },
+    {
+      "id": "candy",
+      "name": "Candy",
+      "icon": "folders/candy.ico",
+      "preview": "previews/folder-candy.png"
+    },
+    {
+      "id": "3d-lilac",
+      "name": "3D lilac",
+      "icon": "folders/3d-lilac.ico",
+      "preview": "previews/folder-3d-lilac.png"
+    },
+    {
+      "id": "3d-pink",
+      "name": "3D pink",
+      "icon": "folders/3d-pink.ico",
+      "preview": "previews/folder-3d-pink.png"
+    },
+    {
+      "id": "3d-night",
+      "name": "3D night sky",
+      "icon": "folders/3d-night.ico",
+      "preview": "previews/folder-3d-night.png"
+    }
+  ],
+  "trails": [
+    {
+      "id": "sweets",
+      "name": "Sweets",
+      "tag": "candy",
+      "sprites": [
+        "trails/sweets_0.png",
+        "trails/sweets_1.png",
+        "trails/sweets_2.png",
+        "trails/sweets_3.png"
+      ],
+      "preview": "previews/trail-sweets.png",
+      "spacing": 24,
+      "life": 1.3,
+      "size": [
+        16,
+        24
+      ],
+      "vx": [
+        -24,
+        24
+      ],
+      "vy": [
+        -12,
+        -12
+      ],
+      "spin": [
+        -2.4,
+        2.4
+      ],
+      "gravity": 108,
+      "pop": true
+    },
+    {
+      "id": "paws",
+      "name": "Paws",
+      "tag": "cartoon",
+      "sprites": [
+        "trails/paws_0.png"
+      ],
+      "preview": "previews/trail-paws.png",
+      "spacing": 26,
+      "life": 1.4,
+      "size": [
+        16,
+        16
+      ],
+      "align": true,
+      "alternate": 6
+    },
+    {
+      "id": "sparkles",
+      "name": "Sparkles",
+      "tag": "cartoon",
+      "sprites": [
+        "trails/sparkles_0.png",
+        "trails/sparkles_1.png"
+      ],
+      "preview": "previews/trail-sparkles.png",
+      "spacing": 6,
+      "count": 2,
+      "jitter": 5,
+      "life": 0.65,
+      "size": [
+        6,
+        14
+      ],
+      "vx": [
+        -18,
+        18
+      ],
+      "vy": [
+        -54,
+        -18
+      ],
+      "shrink": true
+    },
+    {
+      "id": "hearts",
+      "name": "Hearts",
+      "tag": "cartoon",
+      "sprites": [
+        "trails/hearts_0.png",
+        "trails/hearts_1.png",
+        "trails/hearts_2.png"
+      ],
+      "preview": "previews/trail-hearts.png",
+      "spacing": 18,
+      "life": 1.0,
+      "size": [
+        16,
+        24
+      ],
+      "vx": [
+        -12,
+        12
+      ],
+      "vy": [
+        -36,
+        -36
+      ],
+      "rot": [
+        -0.3,
+        0.3
+      ],
+      "pop": true
+    },
+    {
+      "id": "kitties",
+      "name": "Kitties",
+      "tag": "cartoon",
+      "sprites": [
+        "trails/kitties_0.png",
+        "trails/kitties_1.png",
+        "trails/kitties_2.png",
+        "trails/kitties_3.png"
+      ],
+      "preview": "previews/trail-kitties.png",
+      "spacing": 30,
+      "life": 1.4,
+      "size": [
+        22,
+        22
+      ],
+      "vy": [
+        -15,
+        -15
+      ],
+      "rot": [
+        -0.15,
+        0.15
+      ],
+      "pop": true
+    },
+    {
+      "id": "shrooms",
+      "name": "Mushrooms",
+      "tag": "cartoon",
+      "sprites": [
+        "trails/shrooms_0.png",
+        "trails/shrooms_1.png",
+        "trails/shrooms_2.png"
+      ],
+      "preview": "previews/trail-shrooms.png",
+      "spacing": 26,
+      "life": 1.3,
+      "size": [
+        18,
+        24
+      ],
+      "vy": [
+        9,
+        9
+      ],
+      "rot": [
+        -0.2,
+        0.2
+      ],
+      "pop": true
+    },
+    {
+      "id": "petals",
+      "name": "Sakura petals",
+      "tag": "spring",
+      "sprites": [
+        "trails/petals_0.png",
+        "trails/petals_1.png",
+        "trails/petals_2.png"
+      ],
+      "preview": "previews/trail-petals.png",
+      "spacing": 14,
+      "life": 1.5,
+      "size": [
+        9,
+        15
+      ],
+      "vx": [
+        18,
+        48
+      ],
+      "vy": [
+        21,
+        39
+      ],
+      "spin": [
+        -1.8,
+        1.8
+      ],
+      "sway": 24
+    },
+    {
+      "id": "butterflies",
+      "name": "Butterflies",
+      "tag": "spring",
+      "sprites": [
+        "trails/butterflies_0.png",
+        "trails/butterflies_1.png",
+        "trails/butterflies_2.png",
+        "trails/butterflies_3.png",
+        "trails/butterflies_4.png"
+      ],
+      "preview": "previews/trail-butterflies.png",
+      "spacing": 34,
+      "life": 1.7,
+      "size": [
+        14,
+        20
+      ],
+      "vx": [
+        -24,
+        24
+      ],
+      "vy": [
+        -54,
+        -30
+      ],
+      "flap": true
+    },
+    {
+      "id": "leaves",
+      "name": "Leaves",
+      "tag": "autumn",
+      "sprites": [
+        "trails/leaves_0.png",
+        "trails/leaves_1.png",
+        "trails/leaves_2.png",
+        "trails/leaves_3.png"
+      ],
+      "preview": "previews/trail-leaves.png",
+      "spacing": 18,
+      "life": 1.5,
+      "size": [
+        11,
+        17
+      ],
+      "vx": [
+        -9,
+        18
+      ],
+      "vy": [
+        24,
+        48
+      ],
+      "spin": [
+        -2.4,
+        2.4
+      ],
+      "sway": 24
+    },
+    {
+      "id": "snow",
+      "name": "Snowflakes",
+      "tag": "winter",
+      "sprites": [
+        "trails/snow_0.png",
+        "trails/snow_1.png",
+        "trails/snow_2.png"
+      ],
+      "preview": "previews/trail-snow.png",
+      "spacing": 14,
+      "jitter": 5,
+      "life": 1.4,
+      "size": [
+        9,
+        17
+      ],
+      "vx": [
+        -12,
+        12
+      ],
+      "vy": [
+        18,
+        36
+      ],
+      "spin": [
+        -0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "bubbles",
+      "name": "Bubbles",
+      "tag": "3D",
+      "sprites": [
+        "trails/bubbles_0.png",
+        "trails/bubbles_1.png",
+        "trails/bubbles_2.png",
+        "trails/bubbles_3.png",
+        "trails/bubbles_4.png"
+      ],
+      "preview": "previews/trail-bubbles.png",
+      "spacing": 12,
+      "jitter": 4,
+      "life": 1.4,
+      "size": [
+        9,
+        24
+      ],
+      "vx": [
+        -15,
+        15
+      ],
+      "vy": [
+        -60,
+        -30
+      ],
+      "pop": true
+    },
+    {
+      "id": "candy",
+      "name": "Candy stars",
+      "tag": "3D",
+      "sprites": [
+        "trails/candy_0.png",
+        "trails/candy_1.png",
+        "trails/candy_2.png",
+        "trails/candy_3.png",
+        "trails/candy_4.png"
+      ],
+      "preview": "previews/trail-candy.png",
+      "spacing": 18,
+      "life": 1.2,
+      "size": [
+        13,
+        21
+      ],
+      "vx": [
+        -24,
+        24
+      ],
+      "vy": [
+        -12,
+        -12
+      ],
+      "spin": [
+        -2.4,
+        2.4
+      ],
+      "gravity": 108,
+      "pop": true
+    },
+    {
+      "id": "planets",
+      "name": "Planets",
+      "tag": "space",
+      "sprites": [
+        "trails/planets_0.png",
+        "trails/planets_1.png",
+        "trails/planets_2.png",
+        "trails/planets_3.png"
+      ],
+      "preview": "previews/trail-planets.png",
+      "spacing": 30,
+      "life": 1.5,
+      "size": [
+        16,
+        22
+      ],
+      "vx": [
+        -12,
+        12
+      ],
+      "vy": [
+        -24,
+        -12
+      ],
+      "rot": [
+        -0.3,
+        0.3
+      ],
+      "pop": true
+    },
+    {
+      "id": "ghosts",
+      "name": "Little ghosts",
+      "tag": "Halloween",
+      "sprites": [
+        "trails/ghosts_0.png",
+        "trails/ghosts_1.png"
+      ],
+      "preview": "previews/trail-ghosts.png",
+      "spacing": 32,
+      "life": 1.5,
+      "size": [
+        18,
+        22
+      ],
+      "vy": [
+        -30,
+        -30
+      ],
+      "sway": 14,
+      "pop": true
+    },
+    {
+      "id": "neon",
+      "name": "Neon sparks",
+      "tag": "synthwave",
+      "sprites": [
+        "trails/neon_0.png",
+        "trails/neon_1.png",
+        "trails/neon_2.png"
+      ],
+      "preview": "previews/trail-neon.png",
+      "spacing": 6,
+      "count": 2,
+      "jitter": 4,
+      "life": 0.7,
+      "size": [
+        8,
+        16
+      ],
+      "vx": [
+        -18,
+        18
+      ],
+      "vy": [
+        -30,
+        10
+      ],
+      "shrink": true
+    },
+    {
+      "id": "fireflies",
+      "name": "Fireflies",
+      "tag": "cozy",
+      "sprites": [
+        "trails/fireflies_0.png",
+        "trails/fireflies_1.png"
+      ],
+      "preview": "previews/trail-fireflies.png",
+      "spacing": 16,
+      "life": 1.6,
+      "size": [
+        8,
+        14
+      ],
+      "vx": [
+        -14,
+        14
+      ],
+      "vy": [
+        -28,
+        -10
+      ],
+      "sway": 18,
+      "shrink": true
+    }
+  ],
+  "theme_packs": [
+    {
+      "id": "cozy-leaves",
+      "name": "Cozy Leaves",
+      "mood": "Autumn",
+      "blurb": "Falling maple leaves and two cats on the garden fence.",
+      "dock_theme": "autumn-leaf",
+      "cursor_set": "acorn",
+      "trail": "leaves",
+      "folder_icon": "leaf",
+      "wallpaper": "wallpapers/cozy-leaves.png",
+      "preview": "previews/pack-cozy-leaves.png"
+    },
+    {
+      "id": "boo-patch",
+      "name": "Boo Patch",
+      "mood": "Halloween",
+      "blurb": "A sweet ghost with a lantern and a pumpkin with cat ears.",
+      "dock_theme": "boo",
+      "cursor_set": "ghost",
+      "trail": "ghosts",
+      "folder_icon": "ghost",
+      "wallpaper": "wallpapers/boo-patch.png",
+      "preview": "previews/pack-boo-patch.png"
+    },
+    {
+      "id": "neon-drive",
+      "name": "Neon Drive",
+      "mood": "Synthwave",
+      "blurb": "A sliced sunset, a glowing grid road and a neon cat.",
+      "dock_theme": "neon",
+      "cursor_set": "neon",
+      "trail": "neon",
+      "folder_icon": "neon",
+      "wallpaper": "wallpapers/neon-drive.png",
+      "preview": "previews/pack-neon-drive.png"
+    },
+    {
+      "id": "moonlit-library",
+      "name": "Moonlit Library",
+      "mood": "Dark academia",
+      "blurb": "A castle under the moon, old books and a sleepy candle.",
+      "dock_theme": "library",
+      "cursor_set": "quill",
+      "trail": "fireflies",
+      "folder_icon": "book",
+      "wallpaper": "wallpapers/moonlit-library.png",
+      "preview": "previews/pack-moonlit-library.png"
+    },
+    {
+      "id": "cosmic-pals",
+      "name": "Cosmic Pals",
+      "mood": "Space",
+      "blurb": "A big lilac planet with a glowing ring, and Planet Pals drifting by.",
+      "dock_theme": "starlight",
+      "cursor_set": "planet",
+      "trail": "planets",
+      "folder_icon": "planet",
+      "wallpaper": "wallpapers/cosmic-pals.png",
+      "preview": "previews/pack-cosmic-pals.png"
+    },
+    {
+      "id": "cloud-meadow",
+      "name": "Cloud Meadow",
+      "mood": "Dreamy sky",
+      "blurb": "Puffy clouds over a flower meadow. One of them is a friend.",
+      "dock_theme": "cloud",
+      "cursor_set": "cloudy",
+      "trail": "butterflies",
+      "folder_icon": "cloud",
+      "wallpaper": "wallpapers/cloud-meadow.png",
+      "preview": "previews/pack-cloud-meadow.png"
+    },
+    {
+      "id": "sweet-shop",
+      "name": "Sweet Shop",
+      "mood": "Candy",
+      "blurb": "Candy hills, lollipop trees, a gumdrop friend and sweets everywhere.",
+      "dock_theme": "candy",
+      "cursor_set": "candy",
+      "trail": "sweets",
+      "folder_icon": "candy",
+      "wallpaper": "wallpapers/sweet-shop.png",
+      "preview": "previews/pack-sweet-shop.png"
+    }
+  ],
+  "icon_library": [
+    {
+      "id": "planet",
+      "name": "Planet",
+      "style": "3D",
+      "icon": "icons/planet.ico",
+      "preview": "previews/icon-planet.png"
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal ball",
+      "style": "3D",
+      "icon": "icons/crystal.ico",
+      "preview": "previews/icon-crystal.png"
+    },
+    {
+      "id": "potion",
+      "name": "Potion",
+      "style": "3D",
+      "icon": "icons/potion.ico",
+      "preview": "previews/icon-potion.png"
+    },
+    {
+      "id": "book",
+      "name": "Spell book",
+      "style": "3D",
+      "icon": "icons/book.ico",
+      "preview": "previews/icon-book.png"
+    },
+    {
+      "id": "candle",
+      "name": "Candle",
+      "style": "3D",
+      "icon": "icons/candle.ico",
+      "preview": "previews/icon-candle.png"
+    },
+    {
+      "id": "moon",
+      "name": "Moon",
+      "style": "3D",
+      "icon": "icons/moon.ico",
+      "preview": "previews/icon-moon.png"
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom",
+      "style": "3D",
+      "icon": "icons/mushroom.ico",
+      "preview": "previews/icon-mushroom.png"
+    },
+    {
+      "id": "heart",
+      "name": "Heart gem",
+      "style": "3D",
+      "icon": "icons/heart.ico",
+      "preview": "previews/icon-heart.png"
+    },
+    {
+      "id": "paw",
+      "name": "Paw",
+      "style": "3D",
+      "icon": "icons/paw.ico",
+      "preview": "previews/icon-paw.png"
+    },
+    {
+      "id": "teacup",
+      "name": "Teacup",
+      "style": "3D",
+      "icon": "icons/teacup.ico",
+      "preview": "previews/icon-teacup.png"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "style": "3D",
+      "icon": "icons/star.ico",
+      "preview": "previews/icon-star.png"
+    },
+    {
+      "id": "pal-ringo",
+      "name": "Ringo",
+      "style": "Planet Pals",
+      "icon": "icons/pal-ringo.ico",
+      "preview": "previews/icon-pal-ringo.png"
+    },
+    {
+      "id": "pal-terra",
+      "name": "Terra",
+      "style": "Planet Pals",
+      "icon": "icons/pal-terra.ico",
+      "preview": "previews/icon-pal-terra.png"
+    },
+    {
+      "id": "pal-snooze",
+      "name": "Snooze",
+      "style": "Planet Pals",
+      "icon": "icons/pal-snooze.ico",
+      "preview": "previews/icon-pal-snooze.png"
+    },
+    {
+      "id": "pal-rosie",
+      "name": "Rosie",
+      "style": "Planet Pals",
+      "icon": "icons/pal-rosie.ico",
+      "preview": "previews/icon-pal-rosie.png"
+    },
+    {
+      "id": "pal-big-swirl",
+      "name": "Big Swirl",
+      "style": "Planet Pals",
+      "icon": "icons/pal-big-swirl.ico",
+      "preview": "previews/icon-pal-big-swirl.png"
+    },
+    {
+      "id": "pal-frost",
+      "name": "Frost",
+      "style": "Planet Pals",
+      "icon": "icons/pal-frost.ico",
+      "preview": "previews/icon-pal-frost.png"
+    },
+    {
+      "id": "pal-sunny",
+      "name": "Sunny",
+      "style": "Planet Pals",
+      "icon": "icons/pal-sunny.ico",
+      "preview": "previews/icon-pal-sunny.png"
+    },
+    {
+      "id": "pal-zip",
+      "name": "Zip",
+      "style": "Planet Pals",
+      "icon": "icons/pal-zip.ico",
+      "preview": "previews/icon-pal-zip.png"
+    },
+    {
+      "id": "pal-kitty-rocket",
+      "name": "Kitty Rocket",
+      "style": "Planet Pals",
+      "icon": "icons/pal-kitty-rocket.ico",
+      "preview": "previews/icon-pal-kitty-rocket.png"
+    },
+    {
+      "id": "pal-twink",
+      "name": "Twink",
+      "style": "Planet Pals",
+      "icon": "icons/pal-twink.ico",
+      "preview": "previews/icon-pal-twink.png"
+    },
+    {
+      "id": "pal-nap-moon",
+      "name": "Nap Moon",
+      "style": "Planet Pals",
+      "icon": "icons/pal-nap-moon.ico",
+      "preview": "previews/icon-pal-nap-moon.png"
+    },
+    {
+      "id": "candy-swirl",
+      "name": "Peppermint swirl 1",
+      "style": "Candy",
+      "icon": "icons/candy-swirl.ico",
+      "preview": "previews/icon-candy-swirl.png"
+    },
+    {
+      "id": "candy-swirl-n2",
+      "name": "Peppermint swirl 2",
+      "style": "Candy",
+      "icon": "icons/candy-swirl-n2.ico",
+      "preview": "previews/icon-candy-swirl-n2.png"
+    },
+    {
+      "id": "candy-swirl-n3",
+      "name": "Peppermint swirl 3",
+      "style": "Candy",
+      "icon": "icons/candy-swirl-n3.ico",
+      "preview": "previews/icon-candy-swirl-n3.png"
+    },
+    {
+      "id": "candy-swirl-2",
+      "name": "Peppermint swirl 4",
+      "style": "Candy",
+      "icon": "icons/candy-swirl-2.ico",
+      "preview": "previews/icon-candy-swirl-2.png"
+    },
+    {
+      "id": "candy-swirl-n5",
+      "name": "Peppermint swirl 5",
+      "style": "Candy",
+      "icon": "icons/candy-swirl-n5.ico",
+      "preview": "previews/icon-candy-swirl-n5.png"
+    },
+    {
+      "id": "candy-swirl-n6",
+      "name": "Peppermint swirl 6",
+      "style": "Candy",
+      "icon": "icons/candy-swirl-n6.ico",
+      "preview": "previews/icon-candy-swirl-n6.png"
+    },
+    {
+      "id": "candy-sprinkles",
+      "name": "Sprinkle chocolate 1",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles.ico",
+      "preview": "previews/icon-candy-sprinkles.png"
+    },
+    {
+      "id": "candy-sprinkles-n2",
+      "name": "Sprinkle chocolate 2",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n2.ico",
+      "preview": "previews/icon-candy-sprinkles-n2.png"
+    },
+    {
+      "id": "candy-sprinkles-n3",
+      "name": "Sprinkle chocolate 3",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n3.ico",
+      "preview": "previews/icon-candy-sprinkles-n3.png"
+    },
+    {
+      "id": "candy-sprinkles-n4",
+      "name": "Sprinkle chocolate 4",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n4.ico",
+      "preview": "previews/icon-candy-sprinkles-n4.png"
+    },
+    {
+      "id": "candy-sprinkles-2",
+      "name": "Sprinkle chocolate 5",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-2.ico",
+      "preview": "previews/icon-candy-sprinkles-2.png"
+    },
+    {
+      "id": "candy-sprinkles-n6",
+      "name": "Sprinkle chocolate 6",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n6.ico",
+      "preview": "previews/icon-candy-sprinkles-n6.png"
+    },
+    {
+      "id": "candy-sprinkles-n7",
+      "name": "Sprinkle chocolate 7",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n7.ico",
+      "preview": "previews/icon-candy-sprinkles-n7.png"
+    },
+    {
+      "id": "candy-sprinkles-n8",
+      "name": "Sprinkle chocolate 8",
+      "style": "Candy",
+      "icon": "icons/candy-sprinkles-n8.ico",
+      "preview": "previews/icon-candy-sprinkles-n8.png"
+    },
+    {
+      "id": "candy-pink-hard",
+      "name": "Pink hard candy 1",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard.ico",
+      "preview": "previews/icon-candy-pink-hard.png"
+    },
+    {
+      "id": "candy-pink-hard-n2",
+      "name": "Pink hard candy 2",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n2.ico",
+      "preview": "previews/icon-candy-pink-hard-n2.png"
+    },
+    {
+      "id": "candy-pink-hard-2",
+      "name": "Pink hard candy 3",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-2.ico",
+      "preview": "previews/icon-candy-pink-hard-2.png"
+    },
+    {
+      "id": "candy-pink-hard-n4",
+      "name": "Pink hard candy 4",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n4.ico",
+      "preview": "previews/icon-candy-pink-hard-n4.png"
+    },
+    {
+      "id": "candy-pink-hard-n5",
+      "name": "Pink hard candy 5",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n5.ico",
+      "preview": "previews/icon-candy-pink-hard-n5.png"
+    },
+    {
+      "id": "candy-pink-hard-n6",
+      "name": "Pink hard candy 6",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n6.ico",
+      "preview": "previews/icon-candy-pink-hard-n6.png"
+    },
+    {
+      "id": "candy-pink-hard-n7",
+      "name": "Pink hard candy 7",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n7.ico",
+      "preview": "previews/icon-candy-pink-hard-n7.png"
+    },
+    {
+      "id": "candy-pink-hard-n8",
+      "name": "Pink hard candy 8",
+      "style": "Candy",
+      "icon": "icons/candy-pink-hard-n8.ico",
+      "preview": "previews/icon-candy-pink-hard-n8.png"
+    },
+    {
+      "id": "candy-pink-choc",
+      "name": "Pink chocolate 1",
+      "style": "Candy",
+      "icon": "icons/candy-pink-choc.ico",
+      "preview": "previews/icon-candy-pink-choc.png"
+    },
+    {
+      "id": "candy-pink-choc-n2",
+      "name": "Pink chocolate 2",
+      "style": "Candy",
+      "icon": "icons/candy-pink-choc-n2.ico",
+      "preview": "previews/icon-candy-pink-choc-n2.png"
+    },
+    {
+      "id": "candy-pink-choc-2",
+      "name": "Pink chocolate 3",
+      "style": "Candy",
+      "icon": "icons/candy-pink-choc-2.ico",
+      "preview": "previews/icon-candy-pink-choc-2.png"
+    },
+    {
+      "id": "candy-pink-choc-n4",
+      "name": "Pink chocolate 4",
+      "style": "Candy",
+      "icon": "icons/candy-pink-choc-n4.ico",
+      "preview": "previews/icon-candy-pink-choc-n4.png"
+    },
+    {
+      "id": "candy-pink-choc-n5",
+      "name": "Pink chocolate 5",
+      "style": "Candy",
+      "icon": "icons/candy-pink-choc-n5.ico",
+      "preview": "previews/icon-candy-pink-choc-n5.png"
+    }
+  ],
+  "slideshow_wallpapers": [
+    {
+      "id": "helix-glow",
+      "name": "Helix Glow",
+      "wallpaper": "wallpapers/slideshow/helix-glow.png"
+    },
+    {
+      "id": "cat-constellation",
+      "name": "Cat Constellation",
+      "wallpaper": "wallpapers/slideshow/cat-constellation.png"
+    },
+    {
+      "id": "inventor-sketch",
+      "name": "Inventor's Sketch",
+      "wallpaper": "wallpapers/slideshow/inventor-sketch.png"
+    },
+    {
+      "id": "hilltop-breeze",
+      "name": "Hilltop Breeze",
+      "wallpaper": "wallpapers/slideshow/hilltop-breeze.png"
+    },
+    {
+      "id": "leaf-frame",
+      "name": "Leaf Frame",
+      "wallpaper": "wallpapers/slideshow/leaf-frame.png"
+    },
+    {
+      "id": "melty-planets",
+      "name": "Melty Planets",
+      "wallpaper": "wallpapers/slideshow/melty-planets.png"
+    },
+    {
+      "id": "leaf-wreath",
+      "name": "Leaf Wreath",
+      "wallpaper": "wallpapers/slideshow/leaf-wreath.png"
+    },
+    {
+      "id": "little-boo",
+      "name": "Little Boo",
+      "wallpaper": "wallpapers/slideshow/little-boo.png"
+    },
+    {
+      "id": "pumpkin-lane",
+      "name": "Pumpkin Lane",
+      "wallpaper": "wallpapers/slideshow/pumpkin-lane.png"
+    },
+    {
+      "id": "twilight-cats",
+      "name": "Twilight Cats",
+      "wallpaper": "wallpapers/slideshow/twilight-cats.png"
+    },
+    {
+      "id": "fox-meadow",
+      "name": "Fox Meadow",
+      "wallpaper": "wallpapers/slideshow/fox-meadow.png"
+    },
+    {
+      "id": "tea-time",
+      "name": "Tea Time",
+      "wallpaper": "wallpapers/slideshow/tea-time.png"
+    },
+    {
+      "id": "frog-leaves",
+      "name": "Frog in the Leaves",
+      "wallpaper": "wallpapers/slideshow/frog-leaves.png"
+    },
+    {
+      "id": "neon-ring",
+      "name": "Neon Ring",
+      "wallpaper": "wallpapers/slideshow/neon-ring.png"
+    },
+    {
+      "id": "light-ribbons",
+      "name": "Light Ribbons",
+      "wallpaper": "wallpapers/slideshow/light-ribbons.png"
+    },
+    {
+      "id": "neon-stripes",
+      "name": "Neon Stripes",
+      "wallpaper": "wallpapers/slideshow/neon-stripes.png"
+    },
+    {
+      "id": "neon-skyline",
+      "name": "Neon Skyline",
+      "wallpaper": "wallpapers/slideshow/neon-skyline.png"
+    },
+    {
+      "id": "study-desk",
+      "name": "Study Desk",
+      "wallpaper": "wallpapers/slideshow/study-desk.png"
+    },
+    {
+      "id": "witch-nap",
+      "name": "Witch's Nap",
+      "wallpaper": "wallpapers/slideshow/witch-nap.png"
+    },
+    {
+      "id": "rainy-lane",
+      "name": "Rainy Lane",
+      "wallpaper": "wallpapers/slideshow/rainy-lane.png"
+    },
+    {
+      "id": "pumpkin-peek",
+      "name": "Pumpkin Peek",
+      "wallpaper": "wallpapers/slideshow/pumpkin-peek.png"
+    },
+    {
+      "id": "lavender-keys",
+      "name": "Lavender Keys",
+      "wallpaper": "wallpapers/slideshow/lavender-keys.png"
+    },
+    {
+      "id": "firefly-ghost",
+      "name": "Firefly Ghost",
+      "wallpaper": "wallpapers/slideshow/firefly-ghost.png"
+    },
+    {
+      "id": "fence-friends",
+      "name": "Fence Friends",
+      "wallpaper": "wallpapers/slideshow/fence-friends.png"
+    },
+    {
+      "id": "neon-grid",
+      "name": "Neon Grid",
+      "wallpaper": "wallpapers/slideshow/neon-grid.png"
+    },
+    {
+      "id": "block-city",
+      "name": "Block City",
+      "wallpaper": "wallpapers/slideshow/block-city.png"
+    },
+    {
+      "id": "rooftop-cafe",
+      "name": "Rooftop Caf\u00c3\u00a9",
+      "wallpaper": "wallpapers/slideshow/rooftop-cafe.png"
+    },
+    {
+      "id": "neon-alley",
+      "name": "Neon Alley",
+      "wallpaper": "wallpapers/slideshow/neon-alley.png"
+    },
+    {
+      "id": "moon-castle",
+      "name": "Moon Castle",
+      "wallpaper": "wallpapers/slideshow/moon-castle.png"
+    },
+    {
+      "id": "trick-treat",
+      "name": "Trick or Treat",
+      "wallpaper": "wallpapers/slideshow/trick-treat.png"
+    }
+  ]
 }

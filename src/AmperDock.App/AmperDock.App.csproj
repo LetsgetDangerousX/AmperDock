@@ -22,8 +22,8 @@
     <Resource Include="Assets\Mochi\*.png" />
     <!-- her post, bowl and house, and her scenes with them (replica/tools/build_mochi_things.py) -->
     <Resource Include="Assets\Mochi\Things\*.png;Assets\Mochi\Things\things.json" />
-    <!-- Mochi's Pals from Racing for Pi (replica/tools/build_pals.py) -->
-    <Resource Include="Assets\Pals\**\*.png" />
+    <!-- Bella, Mochi's pal, and her things (replica/tools/build_bella.py) -->
+    <Resource Include="Assets\Pals\**\*.png;Assets\Pals\bella\things.json" />
     <!-- her purrs and meows: real recordings, played from files (see Sounds\CREDITS.txt) -->
     <Content Include="Assets\Mochi\Sounds\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="tokens.json" CopyToOutputDirectory="PreserveNewest" />

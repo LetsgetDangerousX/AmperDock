@@ -18,7 +18,8 @@ public static class DesktopWidgetKinds
 {
     public static readonly (string Kind, string Name)[] All = [("note", "Note"), ("clock", "Clock"), ("countdown", "Countdown"), ("weather", "Weather"), ("mochi", "Mochi"),
         (MochiThingWidget.Post, "Mochi's scratch post"), (MochiThingWidget.Bowl, "Mochi's food bowl"), (MochiThingWidget.House, "Mochi's house"),
-        (PalWidget.Bella, "Bella (Mochi's pal)"), (PalWidget.Bunny, "Bunny (Mochi's pal)"), (PalWidget.Dino, "Dino (Mochi's pal)")];
+        (PalWidget.Bella, "Bella (Mochi's pal)"), (BellaThingWidget.House, "Bella's dog house"), (BellaThingWidget.Toy, "Bella's chew toy"),
+        (BellaThingWidget.Bowl, "Bella's food bowl")];
 }
 
 /// <summary>The colours a widget can wear: a soft gradient, the text colour on it, and an accent.</summary>
@@ -109,9 +110,14 @@ public sealed class DesktopWidgetManager
         Changed?.Invoke();
     }
 
+    /// <summary>Pals that were taken out of AmperDock (Bunny and Dino): left out, and cleared from the list.</summary>
+    private static readonly string[] Retired = ["pal-bunny", "pal-dino"];
+
     public void Start()
     {
-        foreach (var w in Load()) Open(w);
+        var list = Load();
+        if (list.RemoveAll(w => Retired.Contains(w.Kind)) > 0) Save(list);
+        foreach (var w in list) Open(w);
     }
 
     /// <summary>A new widget near the top right of the main screen, a little offset from the last one.</summary>
@@ -127,6 +133,13 @@ public sealed class DesktopWidgetManager
             var things = list.Count(o => o.Kind.StartsWith("mochi-"));
             x = Math.Clamp(mochi.X + (things % 2 == 0 ? 1 : -1) * (300 + 180 * (things / 2)), work.Left, work.Right - 260);
             y = mochi.Y - 40;
+        }
+        if (kind.StartsWith("bella-") && list.FirstOrDefault(o => o.Kind == PalWidget.Bella) is { } bella)
+        {
+            // Bella's things go on her row, spaced out beside her
+            var things = list.Count(o => o.Kind.StartsWith("bella-"));
+            x = Math.Clamp(bella.X + (things % 2 == 0 ? 1 : -1) * (300 + 180 * (things / 2)), work.Left, work.Right - 260);
+            y = bella.Y - 60;
         }
         var w = new DesktopWidget
         {
@@ -149,6 +162,14 @@ public sealed class DesktopWidgetManager
         _open.OfType<MochiThingWidget>().Where(t => t.IsLoaded && (kind is null || t.Kind == kind)).ToList();
 
     public IEnumerable<MochiWidget> Mochis() => _open.OfType<MochiWidget>().Where(m => m.IsLoaded).ToList();
+
+    /// <summary>Bella's things on the desktop (house, toy, bowl), of one kind or all of them.</summary>
+    public IEnumerable<BellaThingWidget> BellaThings(string? kind) =>
+        _open.OfType<BellaThingWidget>().Where(t => t.IsLoaded && (kind is null || t.Kind == kind)).ToList();
+
+    /// <summary>Bella on the desktop (including when she's out of sight in her house).</summary>
+    public IEnumerable<PalWidget> Bellas() => _open.OfType<PalWidget>().ToList();
+
     public void Update(DesktopWidget changed)
     {
         var list = Load();
@@ -177,7 +198,8 @@ public sealed class DesktopWidgetManager
             "countdown" => new CountdownWidget(w, this),
             "mochi" => new MochiWidget(w, this),
             MochiThingWidget.Post or MochiThingWidget.Bowl or MochiThingWidget.House => new MochiThingWidget(w, this),
-            PalWidget.Bella or PalWidget.Bunny or PalWidget.Dino => new PalWidget(w, this),
+            PalWidget.Bella => new PalWidget(w, this),
+            BellaThingWidget.House or BellaThingWidget.Toy or BellaThingWidget.Bowl => new BellaThingWidget(w, this),
             "weather" => new WeatherWidget(w, this),
             _ => new NoteWidget(w, this),
         };

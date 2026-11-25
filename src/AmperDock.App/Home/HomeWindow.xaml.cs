@@ -379,9 +379,10 @@ public partial class HomeWindow : Window
             [MochiThingWidget.Post] = "Mochi scratches it, and perches on top",
             [MochiThingWidget.Bowl] = "Double-click to fill it; Mochi eats",
             [MochiThingWidget.House] = "Mochi peeks out and sleeps inside",
-            [PalWidget.Bella] = "The puppy from Racing for Pi",
-            [PalWidget.Bunny] = "The bunny from Racing for Pi",
-            [PalWidget.Dino] = "The dino from Racing for Pi",
+            [PalWidget.Bella] = "A puppy who runs, plays, eats and naps",
+            [BellaThingWidget.House] = "Bella peeks out and sleeps inside",
+            [BellaThingWidget.Toy] = "Bella pounces, chews and tumbles with it",
+            [BellaThingWidget.Bowl] = "Double-click to fill it; Bella eats",
         };
         foreach (var (kind, name) in DesktopWidgetKinds.All)
         {

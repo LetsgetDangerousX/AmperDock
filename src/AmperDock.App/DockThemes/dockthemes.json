@@ -33,7 +33,8 @@
       "decor": [],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "purrple",
@@ -60,7 +61,8 @@
       "decor": [],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "mushroom",
@@ -102,7 +104,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "midnight",
@@ -129,7 +132,8 @@
       "decor": [],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "snowy-pine",
@@ -173,7 +177,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "autumn-leaf",
@@ -217,7 +222,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "pumpkin-night",
@@ -274,7 +280,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "sakura-breeze",
@@ -318,7 +325,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "starlight",
@@ -386,7 +394,8 @@
         }
       ],
       "room_start": 1.75,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "moonbeam",
@@ -454,7 +463,8 @@
         }
       ],
       "room_start": 0,
-      "room_end": 0.5
+      "room_end": 0.5,
+      "skin": null
     },
     {
       "id": "planet-nest",
@@ -507,7 +517,8 @@
         }
       ],
       "room_start": 1.5,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "boo",
@@ -566,7 +577,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "neon",
@@ -609,7 +621,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "library",
@@ -653,7 +666,8 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
     },
     {
       "id": "cloud",
@@ -697,7 +711,48 @@
       ],
       "attach": [],
       "room_start": 0,
-      "room_end": 0
+      "room_end": 0,
+      "skin": null
+    },
+    {
+      "id": "candy",
+      "name": "Candy",
+      "season": null,
+      "blurb": "A cotton-candy cloud with gumdrops and a swirl lollipop.",
+      "preview": "previews/candy.png",
+      "look": {
+        "style": "gradient",
+        "color": "#FFD6EA",
+        "color2": "#CFE6FA",
+        "gradient_angle": 0,
+        "opacity": 100,
+        "outline": true,
+        "outline_color": "#7A4A52",
+        "outline_width": 1.5,
+        "roundness": 0.5,
+        "indicator": "heart",
+        "indicator_color": "#E8559A",
+        "theme": "candy",
+        "decorations": true,
+        "shape": "rounded"
+      },
+      "ears": false,
+      "snow": false,
+      "decor": [],
+      "attach": [],
+      "room_start": 0,
+      "room_end": 0,
+      "skin": {
+        "width": 765,
+        "height": 210,
+        "band_top": 46.0,
+        "band_bottom": 196.0,
+        "body_left": 53.6,
+        "body_right": 637.8,
+        "cap_start": 237.2,
+        "cap_end": 512.7,
+        "sprite": "skins/candy-dock.png"
+      }
     }
   ]
 }

@@ -223,6 +223,7 @@ public sealed class DockHost : IDisposable
         {
             keys.AddRange(theme.Decor.Select(d => d.Sprite));
             keys.AddRange(theme.Attach.Where(a => a.Sprite is not null).Select(a => a.Sprite!));
+            if (theme.Skin is { } skin) keys.Add(skin.Sprite);
         }
         foreach (var key in keys.Distinct())
         {
@@ -945,7 +946,7 @@ public sealed class DockHost : IDisposable
         _renderer.Draw(new DockScene(_frame.ToWindow(bg), _appearance.RadiusFor(bg.H), icons, indicators, label, _scale,
             _frame.Edge, _appearance.Shape switch { DockShapes.Leaf => BandShape.Leaf, DockShapes.Cloud => BandShape.Cloud, _ => BandShape.Rounded },
             Ears: Theme?.Ears == true && _appearance.Opacity > 0, Snow: Theme?.Snow == true && _appearance.Opacity > 0, Decor: decor,
-            Attach: attach, Reflection: _appearance.Reflection / 100f), _style);
+            Attach: attach, Reflection: _appearance.Reflection / 100f, Skin: Skin?.ToDraw()), _style);
         _lastBackground = bg;
         var grew = extent != _lastExtent;
         _lastExtent = extent;
@@ -959,6 +960,9 @@ public sealed class DockHost : IDisposable
     /// dock-space box that holds the band plus everything that sticks out of it (leaf tips, ears, pictures).
     /// An invisible dock (opacity 0) shows no decorations.
     /// </summary>
+    /// <summary>The theme's drawn dock bar, when it has one and the dock isn't invisible.</summary>
+    private SkinInfo? Skin => _appearance.Opacity > 0 && Theme is { Skin: { } s } ? s : null;
+
     /// <summary>The theme's cups, rings and moons (only on rounded docks you can see).</summary>
     private IEnumerable<AttachInfo> Attachments =>
         _appearance.Opacity > 0 && _appearance.Shape == DockShapes.Rounded && Theme is { } t ? t.Attach : [];
@@ -987,6 +991,15 @@ public sealed class DockHost : IDisposable
             x0 -= DockRenderer.CloudEnd * bg.H + 3;
             x1 += DockRenderer.CloudEnd * bg.H + 3;
             y0 -= DockRenderer.CloudRise * bg.H + 3;
+        }
+        if (Skin is { } skin)
+        {
+            // the drawn bar's rounded ends and toppings (gumdrops, a lollipop) reach past the band
+            var (start, end, far, near) = DockRenderer.SkinReach(skin.ToDraw(), skin.Width, skin.Height, bg.H);
+            x0 = MathF.Min(x0, bg.X - start - 2);
+            x1 = MathF.Max(x1, bg.Right + end + 2);
+            y0 = MathF.Min(y0, bg.Y - far - 2);
+            y1 = MathF.Max(y1, bg.Bottom + near + 2);
         }
         foreach (var a in Attachments)
         {

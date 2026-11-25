@@ -74,6 +74,13 @@ public enum AttachKind
 /// </summary>
 public readonly record struct Attachment(AttachKind Kind, bool AtEnd, float Along, float Size, string? Sprite, Argb Color = default);
 
+/// <summary>
+/// A drawn dock bar used instead of the drawn band (a theme's skin). All measures are in the picture's
+/// pixels: BandTop/BandBottom are the band's far and near edges, BodyLeft/BodyRight where the band's ends
+/// are (the drawn ends reach past them), and CapStart..CapEnd the plain middle that stretches.
+/// </summary>
+public readonly record struct SkinDraw(string Key, float BandTop, float BandBottom, float BodyLeft, float BodyRight, float CapStart, float CapEnd);
+
 public readonly record struct IconDraw(string? IconKey, RectF Rect, float Opacity, bool Missing, bool NoReflection = false);
 public readonly record struct IndicatorDraw(float CenterX, float CenterY, float Size, bool Focused);
 /// <summary>Which side of the anchor point the label pill sits on.</summary>
@@ -90,7 +97,7 @@ public sealed record LabelDraw(string Text, float X, float Y, LabelSide Side = L
 public sealed record DockScene(RectF Background, float Radius, IReadOnlyList<IconDraw> Icons,
     IReadOnlyList<IndicatorDraw> Indicators, LabelDraw? Label, float Scale,
     DockEdge Edge = DockEdge.Bottom, BandShape Shape = BandShape.Rounded, bool Ears = false, bool Snow = false,
-    IReadOnlyList<DecorDraw>? Decor = null, IReadOnlyList<Attachment>? Attach = null, float Reflection = 0);
+    IReadOnlyList<DecorDraw>? Decor = null, IReadOnlyList<Attachment>? Attach = null, float Reflection = 0, SkinDraw? Skin = null);
 
 /// <summary>
 /// GPU renderer for one dock window: D3D11 device → Direct2D device context → a premultiplied-alpha
@@ -288,7 +295,8 @@ public sealed class DockRenderer : IDisposable
         var decor = scene.Decor ?? [];
         foreach (var a in scene.Attach ?? []) if (a.Kind == AttachKind.Ring) DrawRingBack(ctx, scene, style, a);
         foreach (var d in decor) if (d.Behind) DrawDecor(ctx, d);
-        DrawBackground(ctx, scene, style);
+        if (scene.Skin is { } skin && _icons.TryGetValue(skin.Key, out var skinBmp)) DrawSkin(ctx, scene, skin, skinBmp);
+        else DrawBackground(ctx, scene, style);
         foreach (var d in decor) if (!d.Behind) DrawDecor(ctx, d);
         if (scene.Reflection > 0) DrawReflections(ctx, scene);
 
@@ -765,6 +773,45 @@ public sealed class DockRenderer : IDisposable
         using var stem = new LocalPath(_d2dFactory!, map, filled: false);
         stem.Begin(L + e * 0.92f, 0.45f * H).Curve(L + e + 0.12f * H, 0.42f * H, L + e + 0.24f * H, 0.33f * H, L + e + 0.3f * H, 0.16f * H).End(close: false);
         ctx.DrawGeometry(stem.Done(), brush, MathF.Max(1.5f, 0.07f * H), _round);
+    }
+
+    /// <summary>
+    /// A skinned band: the picture's two ends as drawn, its plain middle stretched to the dock's length.
+    /// Drawn in band-local coordinates (turned for top and side docks like everything else). On a dock too
+    /// short for both ends, they meet in the middle and each is cut off there.
+    /// </summary>
+    private static void DrawSkin(ID2D1DeviceContext ctx, DockScene s, SkinDraw k, ID2D1Bitmap1 bmp)
+    {
+        var map = new BandMap(s.Background, s.Edge);
+        float L = map.L, H = map.H;
+        var size = bmp.PixelSize;
+        float iw = size.Width, ih = size.Height;
+        var scale = H / (k.BandBottom - k.BandTop);                  // picture pixels to window pixels
+        var o = map.P(0, 0);
+        var ux = map.P(1, 0) - o;
+        var uy = map.P(0, 1) - o;
+        ctx.Transform = new Matrix3x2(ux.X, ux.Y, uy.X, uy.Y, o.X, o.Y);
+        float top = -k.BandTop * scale, height = ih * scale;
+        float a0 = -k.BodyLeft * scale, a1 = (k.CapStart - k.BodyLeft) * scale;            // left end
+        float b0 = L - (k.BodyRight - k.CapEnd) * scale, b1 = L + (iw - k.BodyRight) * scale; // right end
+        var meet = (a1 + b0) / 2;
+        float leftTo = MathF.Min(a1, meet), rightFrom = MathF.Max(b0, meet);
+        void Part(float x0, float x1, float s0, float s1)
+        {
+            if (x1 - x0 < 0.5f || s1 - s0 < 0.5f) return;
+            ctx.DrawBitmap(bmp, new Rect(x0, top, x1 - x0, height), 1, InterpolationMode.HighQualityCubic, new Rect(s0, 0, s1 - s0, ih), null);
+        }
+        if (b0 > a1) Part(a1 - 0.75f, b0 + 0.75f, k.CapStart, k.CapEnd);                  // the middle, a hair wider to hide the seams
+        Part(a0, leftTo, 0, k.BodyLeft + leftTo / scale);
+        Part(rightFrom, b1, k.BodyRight - (L - rightFrom) / scale, iw);
+        ctx.Transform = Matrix3x2.Identity;
+    }
+
+    /// <summary>How far a skin reaches past its band (window-pixel distances: start, end, far side, near side).</summary>
+    public static (float Start, float End, float Far, float Near) SkinReach(SkinDraw k, float width, float height, float bandH)
+    {
+        var scale = bandH / (k.BandBottom - k.BandTop);
+        return (k.BodyLeft * scale, (width - k.BodyRight) * scale, k.BandTop * scale, (height - k.BandBottom) * scale);
     }
 
     private void DrawDecor(ID2D1DeviceContext ctx, DecorDraw d)

@@ -40,6 +40,22 @@ public sealed record AttachInfo
         Color is { } c && DockAppearance.IsHexColor(c) ? Argb.FromRgba(c) : default);
 }
 
+/// <summary>A drawn dock bar used instead of the drawn band. See tools/build_dockthemes.py for the meaning of each field.</summary>
+public sealed record SkinInfo
+{
+    public string Sprite { get; init; } = "";
+    public float Width { get; init; }
+    public float Height { get; init; }
+    public float BandTop { get; init; }
+    public float BandBottom { get; init; }
+    public float BodyLeft { get; init; }
+    public float BodyRight { get; init; }
+    public float CapStart { get; init; }
+    public float CapEnd { get; init; }
+
+    public SkinDraw ToDraw() => new("theme:" + Sprite, BandTop, BandBottom, BodyLeft, BodyRight, CapStart, CapEnd);
+}
+
 /// <summary>A built-in dock theme: a starting look plus its decorations.</summary>
 public sealed record DockThemeInfo
 {
@@ -53,6 +69,9 @@ public sealed record DockThemeInfo
     public bool Snow { get; init; }
     public List<DecorInfo> Decor { get; init; } = [];
     public List<AttachInfo> Attach { get; init; } = [];
+
+    /// <summary>A drawn dock bar used instead of the drawn band, or null.</summary>
+    public SkinInfo? Skin { get; init; }
 
     /// <summary>Extra dock length at each end, in band heights, so attachments don't cover icons.</summary>
     public float RoomStart { get; init; }
