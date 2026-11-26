@@ -38,6 +38,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += (_, ex) => { Log(ex.Exception); ex.Handled = true; };
+        // never work from the install folder: anything started from here (apps opened from the dock) would
+        // inherit it, and while they run, updates and reinstalls can't swap the folder
+        try { Directory.SetCurrentDirectory(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)); }
+        catch (IOException) { }
 
         // the short-lived elevated helper: do the one job and leave (no dock, no windows)
         if (e.Args.Length >= 2 && e.Args[0] == "--admin-task")

@@ -130,7 +130,11 @@ public static class Tasks
         {
             var psi = new ProcessStartInfo(item.Target) { UseShellExecute = true };
             if (!string.IsNullOrEmpty(item.Arguments)) psi.Arguments = item.Arguments;
+            // start in the item's own "Start in" folder, else the app's folder, else the user's folder: never
+            // AmperDock's (an app sitting in the install folder stops AmperDock updating)
             if (!string.IsNullOrEmpty(item.StartIn) && Directory.Exists(item.StartIn)) psi.WorkingDirectory = item.StartIn;
+            else if (File.Exists(item.Target) && Path.GetDirectoryName(item.Target) is { Length: > 0 } dir) psi.WorkingDirectory = dir;
+            else psi.WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (item.RunAsAdmin) psi.Verb = "runas";
             Process.Start(psi)?.Dispose();
             return null;
