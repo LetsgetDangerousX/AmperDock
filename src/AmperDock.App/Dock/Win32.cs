@@ -88,6 +88,9 @@ internal static partial class Win32
 
     // ---- monitors, cursors, keyboard, submenus (dock moving)
     public const uint WM_SETCURSOR = 0x20, MF_POPUP = 0x10, MF_CHECKED = 0x8, MONITOR_DEFAULTTONEAREST = 2;
+    public const uint WM_HOTKEY = 0x312, MOD_ALT = 1, MOD_CONTROL = 2, MOD_SHIFT = 4, MOD_NOREPEAT = 0x4000;
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool RegisterHotKey(nint hwnd, int id, uint mods, uint vk);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static partial bool UnregisterHotKey(nint hwnd, int id);
     public const int VK_LBUTTON = 0x01, VK_MENU = 0x12, IDC_ARROW = 32512, IDC_SIZEALL = 32646;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

@@ -18,6 +18,15 @@ public sealed record DockBehavior
     /// </summary>
     public int RevealDelayMs { get; init; } = 600;
 
+    /// <summary>Auto-hide: only the hotkey brings the dock back; the screen edge does nothing.</summary>
+    public bool HotkeyOnly { get; init; }
+
+    /// <summary>The hotkey that brings auto-hidden docks back (and tucks them away again): see DockHost.Hotkeys.</summary>
+    public string Hotkey { get; init; } = "ctrl+alt+d";
+
+    /// <summary>Keep the dock where it is: pressing and dragging on it never moves it (its Position menu still can).</summary>
+    public bool LockPosition { get; init; }
+
     /// <summary>Show apps that are open but not pinned, after the pinned ones. Null: only the main dock does.</summary>
     public bool? ShowOpenApps { get; init; }
 

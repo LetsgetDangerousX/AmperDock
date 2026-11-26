@@ -191,6 +191,9 @@
               </StackPanel>
               <TextBlock Style="{StaticResource Text.Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
                          Text="Tip: drag an empty part of the dock (or Alt+drag anywhere on it) to move it by hand."/>
+              <CheckBox x:Name="LockBox" Content="Lock the dock in place" Margin="0,10,0,0" Click="OnBehaviourBox"/>
+              <TextBlock Style="{StaticResource Text.Caption}" Margin="26,4,0,0" TextWrapping="Wrap"
+                         Text="Once it's where you want it: pressing and dragging on the dock won't move it."/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Group}">
@@ -199,8 +202,12 @@
               <RadioButton x:Name="HideOff" GroupName="hide" Content="Off: the dock always shows" Click="OnHide" Margin="0,0,0,6"/>
               <RadioButton x:Name="HideOn" GroupName="hide" Content="Slide out of sight when the pointer leaves the dock" Click="OnHide"/>
               <StackPanel x:Name="RevealRow" Orientation="Horizontal" Margin="26,10,0,0">
-                <TextBlock Style="{StaticResource Text.Body}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Bring it back after resting at the edge for"/>
-                <ComboBox x:Name="RevealPicker" MinWidth="130" SelectionChanged="OnReveal" AutomationProperties.Name="How long to rest at the edge"/>
+                <TextBlock Style="{StaticResource Text.Body}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Bring it back by"/>
+                <ComboBox x:Name="RevealPicker" MinWidth="230" SelectionChanged="OnReveal" AutomationProperties.Name="How the dock comes back"/>
+              </StackPanel>
+              <StackPanel x:Name="HotkeyRow" Orientation="Horizontal" Margin="26,10,0,0">
+                <TextBlock Style="{StaticResource Text.Body}" VerticalAlignment="Center" Margin="0,0,10,0" Text="Hotkey (brings it back, or hides it)"/>
+                <ComboBox x:Name="HotkeyPicker" MinWidth="200" SelectionChanged="OnHotkey" AutomationProperties.Name="The hotkey that brings the dock back"/>
               </StackPanel>
               <TextBlock x:Name="FloatHideNote" Style="{StaticResource Text.Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                          Text="A floating dock can't hide. Put it on a screen edge first."/>

@@ -48,6 +48,7 @@ public partial class HomeWindow : Window
         AboutVersion.Text = $"AmperDock {version}";
         AutostartBox.IsChecked = Autostart.IsOn;
         foreach (var (ms, label) in DockHost.RevealChoices) RevealPicker.Items.Add(new ComboBoxItem { Content = label, Tag = ms });
+        foreach (var (id, name, _, _) in DockHost.Hotkeys) HotkeyPicker.Items.Add(new ComboBoxItem { Content = name, Tag = id });
         BuildWidgetKinds();
 
         _onDockChanged = () => Dispatcher.BeginInvoke(SyncDockTabs);
@@ -220,8 +221,13 @@ public partial class HomeWindow : Window
             HideOn.IsEnabled = !floating;
             FloatHideNote.Visibility = Vis(floating);
             RevealRow.IsEnabled = HideOn.IsChecked == true;
-            RevealPicker.SelectedItem = RevealPicker.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == b.RevealDelayMs)
+            RevealPicker.SelectedItem = RevealPicker.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == (b.HotkeyOnly ? -1 : b.RevealDelayMs))
                                         ?? RevealPicker.Items.Cast<ComboBoxItem>().ElementAtOrDefault(2);
+            // one hotkey for every dock, chosen on the main dock
+            HotkeyRow.IsEnabled = HideOn.IsChecked == true && dock.IsMain;
+            HotkeyPicker.SelectedItem = HotkeyPicker.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == b.Hotkey)
+                                        ?? HotkeyPicker.Items.Cast<ComboBoxItem>().FirstOrDefault();
+            LockBox.IsChecked = b.LockPosition;
             ReserveBox.IsChecked = b.ReserveSpace && !b.AutoHide && !floating;
             ReserveBox.IsEnabled = !b.AutoHide && !floating;
         }
@@ -311,6 +317,7 @@ public partial class HomeWindow : Window
         var b = dock.Behavior;
         dock.ChangeBehavior(sender == OpenAppsBox ? b with { ShowOpenApps = OpenAppsBox.IsChecked == true }
             : sender == PreviewsBox ? b with { Previews = PreviewsBox.IsChecked == true }
+            : sender == LockBox ? b with { LockPosition = LockBox.IsChecked == true }
             : b with { ReserveSpace = ReserveBox.IsChecked == true });
     }
 
@@ -331,15 +338,22 @@ public partial class HomeWindow : Window
     private void OnHide(object sender, RoutedEventArgs e)
     {
         if (_syncing || _dock is not { } dock) return;
-        var delay = RevealPicker.SelectedItem is ComboBoxItem { Tag: int ms } ? ms : dock.Behavior.RevealDelayMs;
-        dock.ChangeBehavior(dock.Behavior with { AutoHide = HideOn.IsChecked == true, RevealDelayMs = delay });
+        var pick = RevealPicker.SelectedItem is ComboBoxItem { Tag: int ms } ? ms : dock.Behavior.RevealDelayMs;
+        dock.ChangeBehavior(pick < 0 ? dock.Behavior with { AutoHide = HideOn.IsChecked == true, HotkeyOnly = true }
+            : dock.Behavior with { AutoHide = HideOn.IsChecked == true, HotkeyOnly = false, RevealDelayMs = pick });
         SyncDockTabs();
     }
 
     private void OnReveal(object sender, SelectionChangedEventArgs e)
     {
         if (_syncing || _dock is not { } dock || RevealPicker.SelectedItem is not ComboBoxItem { Tag: int ms }) return;
-        dock.ChangeBehavior(dock.Behavior with { RevealDelayMs = ms });
+        dock.ChangeBehavior(ms < 0 ? dock.Behavior with { HotkeyOnly = true } : dock.Behavior with { HotkeyOnly = false, RevealDelayMs = ms });
+    }
+
+    private void OnHotkey(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncing || _dock is not { } dock || HotkeyPicker.SelectedItem is not ComboBoxItem { Tag: string id }) return;
+        dock.ChangeBehavior(dock.Behavior with { Hotkey = id });
     }
 
     // ---------------------------------------------------------------- Appearance tab

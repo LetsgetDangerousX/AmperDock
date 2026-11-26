@@ -55,8 +55,12 @@ public sealed class DockHost : IDisposable
     // auto-hide
     private float _hide;                       // 0 = showing, 1 = tucked past the screen edge
     private long _pointerLeftAt;               // when the pointer last left the dock or its previews
-    private long _edgeSince;                   // when the pointer reached the edge strip of a tucked-away dock
-    private const int HideDelayMs = 700;
+    private long _edgeSince;                   // when the pointer came to rest at the screen edge by a tucked-away dock
+    private float _edgeRestX, _edgeRestY;      // where it's resting (moving off this point starts the wait again)
+    private bool _atEdge;
+    private long _shownUntil;                  // just brought back: stays out until then for the pointer to arrive
+    private readonly DispatcherTimer _edgePoll;   // while tucked: is the pointer resting at the edge?
+    private const int HideDelayMs = 350;   // tucks away this soon after the pointer leaves
 
     /// <summary>The choices in the Auto-hide menu: how long to rest at the edge before the dock comes back.</summary>
     private static readonly (int Ms, string Menu, string Spoken)[] RevealDelays =
@@ -130,6 +134,7 @@ public sealed class DockHost : IDisposable
         _pointerLeftAt = Environment.TickCount64;
         _hintTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(HintMs), DispatcherPriority.Background, (_, _) => HintExpired(), Dispatcher.CurrentDispatcher);
         _previewTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Normal, (_, _) => PreviewTick(), Dispatcher.CurrentDispatcher);
+        _edgePoll = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => EdgePoll(), Dispatcher.CurrentDispatcher);
         _baseMetrics = theme.DockMetrics();
         _m = _baseMetrics;
         _style = ComposeStyle();
@@ -178,6 +183,8 @@ public sealed class DockHost : IDisposable
         Looks.WallpaperWatcher.Shared.Changed += _onWallpaper;
         ApplyWallpaperColours();
         RefreshTasks();
+        HotkeyPressed += OnRevealHotkey;
+        RegisterRevealHotkey();
     }
 
     // ------------------------------------------------------------------ appearance
@@ -409,7 +416,94 @@ public sealed class DockHost : IDisposable
 
     /// <summary>The auto-hide choices: how long to rest at the screen edge before the dock comes back.</summary>
     public static IReadOnlyList<(int Ms, string Label)> RevealChoices { get; } =
-        [(0, "no wait"), (300, "0.3 seconds"), (600, "0.6 seconds"), (1000, "1 second"), (2000, "2 seconds")];
+        [(0, "touching the screen edge"), (300, "resting at the edge for 0.3 seconds"), (600, "resting at the edge for 0.6 seconds"),
+         (1000, "resting at the edge for 1 second"), (2000, "resting at the edge for 2 seconds"), (-1, "the hotkey only")];
+
+    // ------------------------------------------------------------------ the reveal hotkey
+
+    /// <summary>The hotkeys to choose from (id, name, modifiers, key). The main dock's choice is used by every dock.</summary>
+    public static IReadOnlyList<(string Id, string Name, uint Mods, uint Key)> Hotkeys { get; } =
+    [
+        ("ctrl+alt+d", "Ctrl+Alt+D", MOD_CONTROL | MOD_ALT, 0x44),
+        ("ctrl+alt+space", "Ctrl+Alt+Space", MOD_CONTROL | MOD_ALT, 0x20),
+        ("ctrl+shift+space", "Ctrl+Shift+Space", MOD_CONTROL | MOD_SHIFT, 0x20),
+        ("alt+`", "Alt+` (the key left of 1)", MOD_ALT, 0xC0),
+    ];
+
+    private const int HotkeyId = 0xA0D;
+    private static nint s_hotkeyHwnd;
+    private static string? s_hotkeyId;
+    private static event Action? HotkeyPressed;
+
+    /// <summary>The hotkey's name, as registered (or as chosen, if it couldn't be).</summary>
+    public static string HotkeyName => Hotkeys.FirstOrDefault(h => h.Id == s_hotkeyId).Name ?? Hotkeys[0].Name;
+
+    /// <summary>The main dock holds the hotkey for all of them; register its choice (again, if it changed).</summary>
+    private void RegisterRevealHotkey()
+    {
+        if (!IsMain) return;
+        var want = Hotkeys.FirstOrDefault(h => h.Id == _behavior.Hotkey);
+        if (want.Id is null) want = Hotkeys[0];
+        if (s_hotkeyHwnd == _hwnd && s_hotkeyId == want.Id) return;
+        if (s_hotkeyHwnd != 0) UnregisterHotKey(s_hotkeyHwnd, HotkeyId);
+        (s_hotkeyHwnd, s_hotkeyId) = (0, want.Id);
+        if (RegisterHotKey(_hwnd, HotkeyId, want.Mods | MOD_NOREPEAT, want.Key)) s_hotkeyHwnd = _hwnd;
+        else if (_behavior.AutoHide) Toast($"{want.Name} is already used by another app. Pick another hotkey in the dock's Auto-hide menu.");
+    }
+
+    /// <summary>The hotkey: a tucked-away dock comes out (and waits for the pointer); one that's out tucks away now.</summary>
+    private void OnRevealHotkey()
+    {
+        if (!AutoHides) return;
+        if (_hide > 0.5f) Reveal(3000);
+        else
+        {
+            _shownUntil = 0;
+            _pointerX = _pointerY = null;
+            _pointerLeftAt = long.MinValue / 2;
+            HidePreview();
+            Kick();
+        }
+    }
+
+    /// <summary>Bring a tucked-away dock out, staying out for <paramref name="graceMs"/> for the pointer to get to it.</summary>
+    private void Reveal(int graceMs)
+    {
+        _shownUntil = Environment.TickCount64 + graceMs;
+        _edgePoll.Stop();
+        Kick();
+    }
+
+    /// <summary>
+    /// While the dock is tucked away (and not hotkey-only): is the pointer resting at the screen edge beside it?
+    /// Only a pointer that stays put counts; moving along the edge (a browser's tabs, a menu bar) starts the
+    /// wait again, and a held mouse button never brings it out. The tucked dock itself takes no clicks.
+    /// </summary>
+    private void EdgePoll()
+    {
+        if (!Tucked || _behavior.HotkeyOnly) { _edgePoll.Stop(); _atEdge = false; return; }
+        GetCursorPos(out var p);
+        var c = p;
+        ScreenToClient(_hwnd, ref c);
+        var (x, y) = _frame.ToDock(c.X, c.Y);
+        var e = _lastExtent.W > 0 ? _lastExtent : _lastBackground;
+        var strip = MathF.Max(2, 2 * _scale);
+        var at = x >= e.X && x <= e.Right && y >= _frame.Thickness - strip && y <= _frame.Thickness + strip;
+        if (!at || GetKeyState(VK_LBUTTON) < 0) { _atEdge = false; return; }
+        var now = Environment.TickCount64;
+        if (!_atEdge || MathF.Abs(x - _edgeRestX) + MathF.Abs(y - _edgeRestY) > 4 * _scale)
+        {
+            (_atEdge, _edgeSince, _edgeRestX, _edgeRestY) = (true, now, x, y);
+            return;
+        }
+        if (now - _edgeSince >= Math.Max(60, _behavior.RevealDelayMs)) { _atEdge = false; Reveal(1500); }
+    }
+
+    private void UpdateEdgePoll()
+    {
+        if (Tucked && !_behavior.HotkeyOnly) { if (!_edgePoll.IsEnabled) _edgePoll.Start(); }
+        else { _edgePoll.Stop(); _atEdge = false; }
+    }
 
     /// <summary>The screens a dock can go on: Windows' device name, and a friendly name.</summary>
     public static IReadOnlyList<(string Key, string Name)> Screens()
@@ -635,8 +729,10 @@ public sealed class DockHost : IDisposable
             _hide = MathF.Abs(hideGoal - _hide) <= step ? hideGoal : _hide + MathF.Sign(hideGoal - _hide) * step;
             ApplyHideOffset();
             if (wasTucked && !Tucked) SetExpanded(true, force: true);   // coming back: the whole dock takes the pointer again
+            if (!wasTucked && Tucked) SetExpanded(false, force: true);  // tucked away: it takes no clicks at all now
             moving = true;
         }
+        UpdateEdgePoll();
 
         Render();
 
@@ -708,11 +804,7 @@ public sealed class DockHost : IDisposable
     private bool Tucked => AutoHides && _hide >= 1;
 
     /// <summary>A click on the edge strip brings a tucked-away dock back straight away, without the wait.</summary>
-    private void RevealNow()
-    {
-        _edgeSince = long.MinValue / 2;
-        Kick();
-    }
+    private void RevealNow() => Reveal(1500);
 
     private void SaveBehavior(DockBehavior b)
     {
@@ -729,12 +821,13 @@ public sealed class DockHost : IDisposable
     {
         pending = false;
         if (!AutoHides) return 0;
-        if (Tucked && _pointerX is not null && !_dragging && !_movingDock)
+        if (Environment.TickCount64 < _shownUntil)
         {
-            // tucked away: come back only once the pointer has rested at the edge for a moment
-            pending = true;
-            if (Environment.TickCount64 - _edgeSince < _behavior.RevealDelayMs) return 1;
+            // just brought back (the hotkey, or a rest at the edge): stay out for the pointer to get here
+            if (_pointerX is null) { pending = true; return 0; }
+            _shownUntil = 0;
         }
+        if (Tucked) return 1;   // only the hotkey or a rest at the edge (EdgePoll) brings it back
         var away = _pointerX is null && !_dragging && !_movingDock && !_pressed && _preview?.ItemId is null && _items.Count > 0
                    && !(_toast is not null && Environment.TickCount64 < _toastUntil);
         if (!away) return 0;
@@ -768,6 +861,8 @@ public sealed class DockHost : IDisposable
         Changed?.Invoke();
         if (!b.Previews) HidePreview();
         _pointerLeftAt = Environment.TickCount64;
+        RegisterRevealHotkey();
+        UpdateEdgePoll();
         Kick();
     }
 
@@ -1044,8 +1139,10 @@ public sealed class DockHost : IDisposable
     }
 
     /// <summary>
-    /// Window region: the whole window while the pointer is on the dock (room for magnified icons and
-    /// labels), just the band at rest, so the space beside it stays click-through.
+    /// Window region. On the dock: the band with a margin along it for magnified icons and name labels, up
+    /// to the window's full height (set as it comes out, not every frame), so the rest of the screen edge
+    /// stays click-through and the dock doesn't hold on to a pointer working on a window beside it.
+    /// Dragging an icon or the dock itself: the whole window. At rest: just the band. Tucked away: nothing.
     /// </summary>
     private void SetExpanded(bool expanded, bool force = false)
     {
@@ -1055,13 +1152,17 @@ public sealed class DockHost : IDisposable
         var t = _frame.Thickness;
         var bg = _lastBackground.W > 0 ? _lastBackground : new RectF(0, t - _m.BandHeight, _frame.Length, _m.BandHeight);
         RectF r;
-        if (expanded && !Tucked)   // while it waits at the edge, the hidden dock mustn't catch clicks meant for what's behind it
-            r = new RectF(0, 0, _frame.Length, t);
+        if (expanded && !Tucked)
+        {
+            var e = _lastExtent.W > 0 ? _lastExtent : _lastBackground.W > 0 ? bg : CurrentRects().bg;   // not drawn yet: where the band will be
+            var m = MathF.Max(_m.MagnifiedSize, 110 * _scale);
+            r = _dragging || _movingDock ? new RectF(0, 0, _frame.Length, t) : new RectF(e.X - m, 0, e.W + 2 * m, t);
+        }
         else if (AutoHides && _hide >= 1)
         {
-            var e = _lastExtent.W > 0 ? _lastExtent : bg;
-            var strip = MathF.Max(2, MathF.Round(2 * _scale));   // touch the edge here to bring the dock back
-            r = new RectF(e.X, t - strip, e.W, strip);
+            // tucked away: no part of it takes clicks (EdgePoll and the hotkey bring it back)
+            SetWindowRgn(_hwnd, CreateRectRgn(0, 0, 0, 0), true);
+            return;
         }
         else
         {
@@ -1074,8 +1175,8 @@ public sealed class DockHost : IDisposable
                 r = Union(r, new RectF(bg.CenterX - 200 * _scale, bg.Y - 44 * _scale, 400 * _scale, t - bg.Y + 44 * _scale));
         }
         var win = _frame.ToWindow(r);
-        var rgn = expanded ? CreateRectRgn(0, 0, w, h)
-            : CreateRectRgn((int)MathF.Floor(win.X), (int)MathF.Floor(win.Y), (int)MathF.Ceiling(win.Right), (int)MathF.Ceiling(win.Bottom));
+        var rgn = CreateRectRgn(Math.Max(0, (int)MathF.Floor(win.X)), Math.Max(0, (int)MathF.Floor(win.Y)),
+            Math.Min(w, (int)MathF.Ceiling(win.Right)), Math.Min(h, (int)MathF.Ceiling(win.Bottom)));
         SetWindowRgn(_hwnd, rgn, true);   // the system owns rgn now
     }
 
@@ -1165,14 +1266,18 @@ public sealed class DockHost : IDisposable
                 // back on the dock after really leaving it (not just the menu taking the pointer): previews are back
                 if (_pointerX is null && Environment.TickCount64 - Math.Max(_pointerLeftAt, _menuClosedAt) > 400) _previewMuted = null;
                 var (x, y) = DockPoint(l);
-                if (_pointerX is null && Tucked) _edgeSince = Environment.TickCount64;   // the wait at the edge starts now
                 _pointerX = x;
                 _pointerY = y;
                 var past = MathF.Abs(x - _pressX) > DragThreshold * _scale || MathF.Abs(y - _pressY) > DragThreshold * _scale;
                 if (_pressed && past && !_dragging)
                 {
-                    if (_pressOnEmpty) StartMovingDock();
-                    else if (_pressIndex >= 0 && !IsOpenApp(_items[_pressIndex])) { _dragging = true; HidePreview(); }
+                    if (_pressOnEmpty && !_behavior.LockPosition) StartMovingDock();
+                    else if (_pressOnEmpty)
+                    {
+                        _pressOnEmpty = false;
+                        Toast("The dock is locked in place. Unlock it from its menu to move it.");
+                    }
+                    else if (_pressIndex >= 0 && !IsOpenApp(_items[_pressIndex])) { _dragging = true; HidePreview(); SetExpanded(true, force: true); }
                 }
                 TrackHover();
                 Kick();
@@ -1253,6 +1358,10 @@ public sealed class DockHost : IDisposable
                 OnDropFiles(w);
                 return 0;
 
+            case WM_HOTKEY when (int)w == HotkeyId:
+                HotkeyPressed?.Invoke();   // every dock: the main one holds the hotkey for them all
+                return 0;
+
             case WM_APPBAR when (uint)w == ABN_POSCHANGED:   // another bar (the taskbar) moved: find our place again
                 _appBarRect = default;
                 Place();
@@ -1275,6 +1384,7 @@ public sealed class DockHost : IDisposable
     {
         _movingDock = true;
         _pointerX = _pointerY = null;
+        SetExpanded(true, force: true);   // the whole window while it's being moved
         Toast("Drop near any screen edge to dock it there, or anywhere else to float.");
     }
 
@@ -1395,7 +1505,7 @@ public sealed class DockHost : IDisposable
         var position = new DockMenu();
         const int Remove = 1, OpenLocation = 2, AddApp = 3, AddFolder = 4, AddFile = 12, Edit = 5, NewDock = 6, RemoveDock = 7, Looks = 8, Appearance = 9, Quit = 11, Previews = 14, KeepOnDock = 16, OpenApps = 17, Reserve = 18, Home = 19, WidgetBase = 40;
         const int PosBottom = 20, PosTop = 21, PosLeft = 22, PosRight = 23, PosFloat = 24, PosTip = 25;
-        const int HideOff = 30, HideTip = 31, HideBase = 32;
+        const int HideOff = 30, HideTip = 31, HideBase = 32, LockPos = 60, HideHotkeyOnly = 61, HotkeyTip = 62, HotkeyBase = 63;
         if (hit >= 0 && IsOpenApp(_items[hit]))
         {
             menu.Add(_items[hit].Target is null ? MF_STRING | MF_GRAYED : MF_STRING, KeepOnDock, "&Keep on dock");
@@ -1423,14 +1533,26 @@ public sealed class DockHost : IDisposable
         position.Add(Check(DockEdge.Right), PosRight, "&Right");
         position.Add(Check(DockEdge.Float), PosFloat, "&Floating");
         position.Add(MF_SEPARATOR, 0, null);
-        position.Add(MF_STRING | MF_GRAYED, PosTip, "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
+        position.Add(MF_STRING | MF_GRAYED, PosTip, _behavior.LockPosition ? "The dock is locked: unlock it to drag it somewhere else"
+            : "Tip: drag an empty part of the dock (or Alt+drag) to move it anywhere");
         menu.Add(MF_POPUP, position, "&Position");
+        menu.Add(MF_STRING | (_behavior.LockPosition ? MF_CHECKED : 0), LockPos, "Loc&k the dock in place");
         var hideMenu = new DockMenu();
         hideMenu.Add(MF_STRING | (_behavior.AutoHide ? 0 : MF_CHECKED), HideOff, "&Off");
         hideMenu.Add(MF_SEPARATOR, 0, null);
         hideMenu.Add(MF_STRING | MF_GRAYED, HideTip, "On: rest the pointer at the screen edge to bring it back");
         for (var i = 0; i < RevealDelays.Length; i++)
-            hideMenu.Add(MF_STRING | (_behavior.AutoHide && _behavior.RevealDelayMs == RevealDelays[i].Ms ? MF_CHECKED : 0), HideBase + i, RevealDelays[i].Menu);
+            hideMenu.Add(MF_STRING | (_behavior.AutoHide && !_behavior.HotkeyOnly && _behavior.RevealDelayMs == RevealDelays[i].Ms ? MF_CHECKED : 0), HideBase + i, RevealDelays[i].Menu);
+        hideMenu.Add(MF_SEPARATOR, 0, null);
+        hideMenu.Add(MF_STRING | (_behavior.AutoHide && _behavior.HotkeyOnly ? MF_CHECKED : 0), HideHotkeyOnly,
+            $"Come back &only with the hotkey ({HotkeyName}), never at the edge");
+        if (IsMain)
+        {
+            hideMenu.Add(MF_SEPARATOR, 0, null);
+            hideMenu.Add(MF_STRING | MF_GRAYED, HotkeyTip, "The hotkey brings the dock back (press it again to hide it):");
+            for (var i = 0; i < Hotkeys.Count; i++)
+                hideMenu.Add(MF_STRING | (Hotkeys[i].Id == (_behavior.Hotkey ?? Hotkeys[0].Id) ? MF_CHECKED : 0), HotkeyBase + i, "   " + Hotkeys[i].Name);
+        }
         menu.Add(MF_POPUP | (_placement.Edge == DockEdge.Float ? MF_GRAYED : 0), hideMenu,
             _placement.Edge == DockEdge.Float ? "Auto-&hide (dock it to a screen edge first)" : "Auto-&hide");
         menu.Add(MF_STRING | (_behavior.Previews ? MF_CHECKED : 0), Previews, "Window pre&views");
@@ -1504,13 +1626,25 @@ public sealed class DockHost : IDisposable
                 case Appearance:
                     _commands.OpenAppearance(this);
                     break;
+                case LockPos:
+                    SetBehavior(_behavior with { LockPosition = !_behavior.LockPosition });
+                    Toast(_behavior.LockPosition ? "The dock is locked in place." : "The dock can be dragged somewhere else again.");
+                    break;
+                case HideHotkeyOnly:
+                    SetBehavior(_behavior with { AutoHide = true, HotkeyOnly = true });
+                    Toast($"Auto-hide is on: press {HotkeyName} to bring the dock back.");
+                    break;
+                case >= HotkeyBase when cmd < HotkeyBase + Hotkeys.Count:
+                    SetBehavior(_behavior with { Hotkey = Hotkeys[cmd - HotkeyBase].Id });
+                    if (s_hotkeyHwnd != 0) Toast($"{HotkeyName} now brings the dock back.");
+                    break;
                 case HideOff:
                     SetBehavior(_behavior with { AutoHide = false });
                     Toast("Auto-hide is off.");
                     break;
                 case >= HideBase when cmd < HideBase + RevealDelays.Length:
                     var delay = RevealDelays[cmd - HideBase];
-                    SetBehavior(_behavior with { AutoHide = true, RevealDelayMs = delay.Ms });
+                    SetBehavior(_behavior with { AutoHide = true, HotkeyOnly = false, RevealDelayMs = delay.Ms });
                     Toast(delay.Ms == 0 ? "Auto-hide is on: touch the screen edge to bring the dock back."
                         : $"Auto-hide is on: rest the pointer at the screen edge for {delay.Spoken} to bring the dock back.");
                     break;
@@ -1643,6 +1777,9 @@ public sealed class DockHost : IDisposable
         Looks.WallpaperWatcher.Shared.Changed -= _onWallpaper;
         _previewTimer.Stop();
         _hintTimer.Stop();
+        _edgePoll.Stop();
+        HotkeyPressed -= OnRevealHotkey;
+        if (s_hotkeyHwnd == _hwnd) { UnregisterHotKey(_hwnd, HotkeyId); s_hotkeyHwnd = 0; }
         _preview?.Close();
         _clock.Dispose();
         s_hosts.Remove(_hwnd);
